@@ -1,0 +1,39 @@
+{
+  "identifier": "desktop-capability",
+  "platforms": [
+    "macOS",
+    "windows",
+    "linux"
+  ],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "updater:default",
+    "store:default",
+    "autostart:default",
+    "opener:default",
+    "autostart:default",
+    "log:default",
+    "fs:default",
+    "fs:allow-download-write",
+    "fs:allow-download-write-recursive",
+    "shell:default",
+    "shell:allow-open",
+    "dialog:allow-message",
+    "notification:default",
+    "core:window:allow-set-min-size",
+    "core:window:allow-set-size",
+    "core:window:allow-start-dragging",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    "clipboard:read-all",
+    "clipboard:write-all",
+    "clipboard:monitor-all"
+  ],
+  "security": {
+    "csp": null,
+    "dangerousDisableAssetCspModification": true
+  }
+}

@@ -1,0 +1,28 @@
+{
+	"Close": "Close",
+	"ExampleView": "Example View",
+	"Maximize": "Maximize",
+	"Minimize": "Minimize",
+	"Modern Desktop App Examples": "Modern Desktop App Examples",
+	"Restore Down": "Restore Down",
+	"transExample": "This template is from <0>{{variable}}</0>",
+	"installingUpdate": "Installing update v{{ v }}",
+	"updateAvailable": "Update v{{ v }} available",
+	"relaunchMsg": "Will relaunch afterwards",
+	"installAndRelaunch": "Install update and relaunch",
+	"footer[0]": "FOOTER message from translation files",
+
+	"Success": "成功",
+	"ON": "ON",
+	"OFF": "OFF",
+	"API Endpoint": "API 接口地址",
+	"Input API Endpoint": "输入 API 接口地址",
+	"Get-Key": "获取 API Key",
+	"API Key has been copied to the clipboard": "API Key 已复制到剪贴板，请前往添加快捷指令",
+	"End-to-End Encryption": "端到端加密",
+	"Input End-to-End Password": "输入端到端加密密码",
+	"Start at Login": "开机启动",
+	"It will start automatically when the system starts": "开启后将在系统开机时自动启动Cloudboard",
+	"Cloudboard v{{ v }}": "Cloudboard v{{ v }}",
+	"Github": "Github"
+}

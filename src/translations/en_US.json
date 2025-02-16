@@ -1,0 +1,28 @@
+{
+	"Close": "Close",
+	"ExampleView": "Example View",
+	"Maximize": "Maximize",
+	"Minimize": "Minimize",
+	"Modern Desktop App Examples": "Modern Desktop App Examples",
+	"Restore Down": "Restore Down",
+	"transExample": "This template is from <0>{{variable}}</0>",
+	"installingUpdate": "Installing update v{{ v }}",
+	"updateAvailable": "Update v{{ v }} available",
+	"relaunchMsg": "Will relaunch afterwards",
+	"installAndRelaunch": "Install update and relaunch",
+	"footer[0]": "FOOTER message from translation files",
+
+	"Success": "Success",
+	"ON": "ON",
+	"OFF": "OFF",
+	"API Endpoint": "API Endpoint",
+	"Input API Endpoint": "Input API Endpoint",
+	"Get-Key": "Get-Key",
+	"API Key has been copied to the clipboard": "API Key has been copied to the clipboard.",
+	"End-to-End Encryption": "End-to-End Encryption",
+	"Input End-to-End Password": "Input End-to-End Password",
+	"Start at Login": "Start at Login",
+	"It will start automatically when the system starts": "It will start automatically when the system starts",
+	"Cloudboard v{{ v }}": "Cloudboard v{{ v }}",
+	"Github": "Github"
+}
