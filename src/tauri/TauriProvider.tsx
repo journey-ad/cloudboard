@@ -95,10 +95,10 @@ export function TauriProvider({ children }: PropsWithChildren) {
 			setScaleFactor(scaleFactor);
 		}, 200);
 
-		useEffect(() => {
-			tauriInterval.start();
-			return tauriInterval.stop;
-		}, []);
+		// useEffect(() => {
+		// 	tauriInterval.start();
+		// 	return tauriInterval.stop;
+		// }, []);
 
 		useEffect(() => {
 			if (osType === 'windows') {

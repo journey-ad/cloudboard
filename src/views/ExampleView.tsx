@@ -17,18 +17,32 @@ import * as CryptoJS from 'crypto-js';
 import useWebsocketConnection from '../hooks/useWebsocket';
 
 /**
- * 剪贴板数据来源
+ * @description 剪贴板数据来源类型
  */
 type ClipboardSource = 'local' | 'remote';
 
 /**
- * 剪贴板数据类型
+ * @description 剪贴板数据类型
  */
 interface ClipboardData {
-  type: string;
+  type: ClipboardDataType;
   content: string;
   source: ClipboardSource;
 }
+
+/**
+ * @description 剪贴板内容类型
+ */
+type ClipboardDataType = 'text' | 'image' | 'html' | 'rtf';
+
+/**
+ * @description API相关常量
+ */
+const API_CONSTANTS = {
+  VERSION: '0.1.0',
+  DEFAULT_URL: 'https://clip.ovo.re/api/v1',
+  URL_REGEX: /^https?:\/\/.*$/
+} as const;
 
 function toggleFullscreen() {
   const appWindow = getCurrentWebviewWindow();
@@ -42,13 +56,42 @@ export default function ExampleView() {
   const storeName = RUNNING_IN_TAURI ? join(fileSep, documents!, APP_NAME, 'example_view.dat') : 'example_view';
   // store-plugin will create necessary directories
   const { use: useKVP, loading, data } = createStorage(storeName);
-  const [apiBaseUrl, setApiBaseUrl] = useKVP('apiBaseUrl', 'https://clip.ovo.re/api/v1');
-  const [tmp_apiBaseUrl, setTmpApiBaseUrl] = useState(apiBaseUrl);
-  const [apiKey, setApiKey] = useKVP('apiKey', '');
-  const [apiKeyLoading, setApiKeyLoading] = useState(false);
 
-  const apiBaseUrlRef = useRef(apiBaseUrl);
-  const apiKeyRef = useRef(apiKey);
+  /**
+   * @description 管理API相关状态的hook
+   */
+  const useApiState = () => {
+    const defaultUrl = API_CONSTANTS.DEFAULT_URL;
+    const [apiBaseUrl, setApiBaseUrl] = useKVP('apiBaseUrl', defaultUrl);
+    const [tmpApiBaseUrl, setTmpApiBaseUrl] = useState(apiBaseUrl);
+    const [apiKey, setApiKey] = useKVP('apiKey', '');
+    const [apiKeyLoading, setApiKeyLoading] = useState(false);
+
+    const apiBaseUrlRef = useRef(apiBaseUrl);
+    const apiKeyRef = useRef(apiKey);
+
+    useEffect(() => {
+      apiBaseUrlRef.current = apiBaseUrl;
+      apiKeyRef.current = apiKey;
+    }, [apiBaseUrl, apiKey]);
+
+    return {
+      apiBaseUrl,
+      setApiBaseUrl,
+      tmpApiBaseUrl,
+      setTmpApiBaseUrl,
+      apiKey,
+      setApiKey,
+      apiKeyLoading,
+      setApiKeyLoading,
+      apiBaseUrlRef,
+      apiKeyRef
+    };
+  };
+
+  // 使用hook获取API状态
+  const apiState = useApiState();
+
   const isCloudboardChangeRef = useRef(false);
 
   const systemLanguage = navigator.language.split('-')[0];
@@ -70,26 +113,26 @@ export default function ExampleView() {
       return;
     }
 
-    setApiBaseUrl(url);
-  }, [useKVP]);
+    apiState.setApiBaseUrl(url);
+  }, [apiState.setApiBaseUrl]);
 
   useEffect(() => {
     if (loading) {
       return;
     }
 
-    apiBaseUrlRef.current = apiBaseUrl;
-    apiKeyRef.current = apiKey;
+    apiState.apiBaseUrlRef.current = apiState.apiBaseUrl;
+    apiState.apiKeyRef.current = apiState.apiKey;
 
-    console.log('[ExampleView] useEffect', apiBaseUrl, apiKey);
-  }, [loading, apiBaseUrl, apiKey]);
+    console.log('[ExampleView] useEffect', apiState.apiBaseUrl, apiState.apiKey);
+  }, [loading, apiState.apiBaseUrl, apiState.apiKey]);
 
   useEffect(() => {
-    apiBaseUrlRef.current = apiBaseUrl;
-    if (apiBaseUrl && apiBaseUrl !== tmp_apiBaseUrl) {
-      setTmpApiBaseUrl(apiBaseUrl);
+    apiState.apiBaseUrlRef.current = apiState.apiBaseUrl;
+    if (apiState.apiBaseUrl && apiState.apiBaseUrl !== apiState.tmpApiBaseUrl) {
+      apiState.setTmpApiBaseUrl(apiState.apiBaseUrl);
     }
-  }, [apiBaseUrl]);
+  }, [apiState.apiBaseUrl]);
 
   const [endToEndEncryption, setEndToEndEncryption] = useKVP('endToEndEncryption', false);
   const [endToEndEncryptionPassword, setEndToEndEncryptionPassword] = useKVP('endToEndEncryptionPassword', '');
@@ -97,16 +140,16 @@ export default function ExampleView() {
   // 获取API密钥
   const fetchApiKey = useCallback(async () => {
     try {
-      setApiKeyLoading(true);
-      const response = await fetch(`${apiBaseUrlRef.current}/key-gen`, {
+      apiState.setApiKeyLoading(true);
+      const response = await fetch(`${apiState.apiBaseUrlRef.current}/key-gen`, {
         headers: {
           'Content-Type': 'application/json',
           'X-Cloudboard-Version': '0.1.0'
         }
       });
       const data = await response.json();
-      setApiKey(data.key);
-      setApiKeyLoading(false);
+      apiState.setApiKey(data.key);
+      apiState.setApiKeyLoading(false);
     } catch (error) {
       console.error('Failed to get API key:', error);
       notifications.show({
@@ -115,25 +158,25 @@ export default function ExampleView() {
         color: 'red'
       });
     }
-  }, [setApiKey]);
+  }, [apiState.setApiKey]);
 
   const getApiKey = useCallback(async () => {
-    if (apiKeyLoading) {
+    if (apiState.apiKeyLoading) {
       return;
     }
 
-    if (!apiKey) {
+    if (!apiState.apiKey) {
       await fetchApiKey();
     }
 
     // 写入剪贴板
-    await clipboard.writeText(apiKey);
+    await clipboard.writeText(apiState.apiKey);
     notifications.show({
       title: t('Success'),
       message: t('API Key has been copied to the clipboard'),
       color: 'green'
     });
-  }, [fetchApiKey, apiKeyLoading, apiKey]);
+  }, [fetchApiKey, apiState.apiKeyLoading, apiState.apiKey]);
 
   const [startAtLogin, setStartAtLogin] = useState(false);
 
@@ -155,53 +198,13 @@ export default function ExampleView() {
     setAutostart();
   }, [startAtLogin, setStartAtLogin]);
 
-  // fs example
-  async function createFile() {
-    if (RUNNING_IN_TAURI) {
-      try {
-        // 使用 BaseDirectory.Download 确保写入下载目录
-        await fs.writeTextFile(
-          'example_file.txt',
-          'oh this is from TAURI! COOLIO.\n',
-          {
-            baseDir: fs.BaseDirectory.Download
-          }
-        );
-
-        // 打开下载目录
-        if (downloads) {
-          await shell.open(downloads);
-        }
-
-        // 调用 Rust 函数
-        const msg = await invoke('process_file', {
-          filepath: `${downloads}/example_file.txt`
-        });
-
-        // 显示通知
-        notify('Message from Rust', msg as string);
-        notifications.show({
-          title: 'Message from Rust',
-          message: msg as string
-        });
-      } catch (error) {
-        console.error('File operation failed:', error);
-        notifications.show({
-          title: 'Error',
-          message: `操作失败: ${error}`,
-          color: 'red'
-        });
-      }
-    }
-  }
-
   /**
    * 使用WebSocket连接
    * @param {object} props WebSocket配置
    * @param {boolean} shouldConnect 是否应该连接
    */
   const { socket, isConnected } = useWebsocketConnection({
-    url: new URL(apiBaseUrlRef.current).host
+    url: new URL(apiState.apiBaseUrlRef.current).host
   }, !loading);
 
   // 监听云端剪贴板变化
@@ -209,7 +212,7 @@ export default function ExampleView() {
     if (isConnected) {
       console.log('socket connected');
 
-      socket?.emit('auth', apiKey);
+      socket?.emit('auth', apiState.apiKey);
       socket?.on('clipboard:sync', async (data) => {
         console.log('[clipboard] recv ===============>', data);
 
@@ -222,7 +225,7 @@ export default function ExampleView() {
         await handleClipboardData(clipboardData);
       });
     }
-  }, [isConnected, socket, apiKey]);
+  }, [isConnected, socket, apiState.apiKey]);
 
   // 监听本地剪贴板变化
   const isListeningRef = useRef(false);
@@ -311,7 +314,7 @@ export default function ExampleView() {
   // 上传剪贴板内容
   const uploadClipboard = useCallback(async ({ type, content }: { type: string, content: string }) => {
     try {
-      const response = await fetch(`${apiBaseUrlRef.current}/sync`, {
+      const response = await fetch(`${apiState.apiBaseUrlRef.current}/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -320,7 +323,7 @@ export default function ExampleView() {
         body: JSON.stringify({
           type,
           content,
-          key: apiKeyRef.current
+          key: apiState.apiKeyRef.current
         })
       });
       const data = await response.json();
@@ -344,62 +347,81 @@ export default function ExampleView() {
   }, [endToEndEncryption, endToEndEncryptionPassword]);
 
   /**
-   * 处理剪贴板数据
-   * @param {ClipboardData} data 剪贴板数据
+   * @description 加密内容
+   */
+  const encryptContent = (content: string, password: string): string => {
+    const encrypted = CryptoJS.AES.encrypt(content, password).toString();
+    console.log('[clipboard] encryptContent', content, encrypted);
+    return encrypted;
+  };
+
+  /**
+   * @description 解密内容
+   */
+  const decryptContent = (content: string, password: string): string => {
+    const decrypted = CryptoJS.AES.decrypt(content, password).toString(CryptoJS.enc.Utf8) || content;
+    console.log('[clipboard] decryptContent', content, decrypted);
+    return decrypted;
+  };
+
+  /**
+   * @description 写入剪贴板
+   */
+  const writeToClipboard = async (type: ClipboardDataType, content: string) => {
+    const writers = {
+      text: () => clipboard.writeText(content),
+      image: () => clipboard.writeImageBase64(content),
+      html: () => clipboard.writeHtml(content),
+      rtf: () => clipboard.writeRtf(content)
+    };
+
+    await writers[type]();
+  };
+
+  /**
+   * @description 处理剪贴板数据
    */
   const handleClipboardData = useCallback(async (data: ClipboardData) => {
     const { type, content, source } = data;
-    
-    // 如果是远程数据,需要进行解密
-    let processedContent = content;
-    if (source === 'remote' && endToEndEncryptionRef.current) {
-      processedContent = CryptoJS.AES.decrypt(content, endToEndEncryptionPasswordRef.current).toString(CryptoJS.enc.Utf8) || content;
-      console.log('[clipboard] decrypt', content, processedContent);
-    }
-    
-    // 检查是否是重复内容
+
+    // 处理内容
+    const processedContent = source === 'remote' && endToEndEncryptionRef.current
+      ? decryptContent(content, endToEndEncryptionPasswordRef.current)
+      : content;
+
+    // 跳过重复内容
     if (processedContent === lastContentRef.current) {
       console.log('[clipboard] skip duplicate content');
       return;
     }
-    
-    // 更新最后处理的内容
+
     lastContentRef.current = processedContent;
 
-    // 写入剪贴板前设置标记
+    // 设置远程变更标记
     if (source === 'remote') {
       isCloudboardChangeRef.current = true;
     }
 
     // 写入剪贴板
     try {
-      if (type === 'text') {
-        await clipboard.writeText(processedContent);
-      } else if (type === 'image') {
-        await clipboard.writeImageBase64(processedContent);
-      } else if (type === 'html') {
-        await clipboard.writeHtml(processedContent);
-      }
+      await writeToClipboard(type as ClipboardDataType, processedContent);
     } catch (error) {
       console.error('[clipboard] failed to write clipboard:', error);
       return;
     }
 
-    // 如果是本地数据,需要同步到云端
+    // 同步到云端
     if (source === 'local') {
-      let content = processedContent;
-      console.log('[clipboard] local', content, endToEndEncryptionRef.current, endToEndEncryptionPasswordRef.current);
-      if (endToEndEncryptionRef.current) {
-        content = CryptoJS.AES.encrypt(processedContent, endToEndEncryptionPasswordRef.current).toString();
-        console.log('[clipboard] encrypt', processedContent, content);
-      }
+      const uploadContent = endToEndEncryptionRef.current
+        ? encryptContent(processedContent, endToEndEncryptionPasswordRef.current)
+        : processedContent;
 
-      uploadClipboard({
+      await uploadClipboard({
         type,
-        content
+        content: uploadContent
       });
     }
-  }, []); // 移除依赖,使用 ref 来访问最新值
+  }, []);
 
   if (tauriLoading || loading) {
     return <Center h={'100%'}>
@@ -417,15 +439,15 @@ export default function ExampleView() {
     <Text size={'sm'} style={{ marginBottom: '-.5rem' }}>{t('API Endpoint')}</Text>
     <Group justify="space-between" wrap="nowrap">
       <div style={{ width: '100%' }}>
-        <TextInput placeholder={t('Input API Endpoint')} value={tmp_apiBaseUrl} onBlur={() => changeApiBaseUrl(tmp_apiBaseUrl)} onChange={e => setTmpApiBaseUrl(e.currentTarget.value.trim())} />
+        <TextInput placeholder={t('Input API Endpoint')} value={apiState.tmpApiBaseUrl} onBlur={() => changeApiBaseUrl(apiState.tmpApiBaseUrl)} onChange={e => apiState.setTmpApiBaseUrl(e.currentTarget.value.trim())} />
       </div>
-      <Button size='xs' loading={apiKeyLoading} onClick={getApiKey} style={{ flexShrink: 0 }}>{t('Get-Key')}</Button>
+      <Button size='xs' loading={apiState.apiKeyLoading} onClick={getApiKey} style={{ flexShrink: 0 }}>{t('Get-Key')}</Button>
     </Group>
 
     <Text size={'sm'} style={{ marginBottom: '-.5rem' }}>{t('End-to-End Encryption')}</Text>
     <Group justify="space-between" wrap="nowrap">
       <div style={{ width: '100%' }}>
-        <PasswordInput placeholder={t('Input End-to-End Password')} value={endToEndEncryptionPassword} onChange={e => setEndToEndEncryptionPassword(e.currentTarget.value)} disabled={!endToEndEncryption} />
+        <PasswordInput placeholder={t('Input End-to-End Password')} value={endToEndEncryptionPassword} minLength={6} maxLength={32} required onChange={e => setEndToEndEncryptionPassword(e.currentTarget.value)} disabled={!endToEndEncryption} />
       </div>
       <Switch onLabel={t('ON')} offLabel={t('OFF')} size="lg" checked={endToEndEncryption} onChange={e => setEndToEndEncryption(e.currentTarget.checked)} />
     </Group>
@@ -447,24 +469,5 @@ export default function ExampleView() {
       </Text>
     </Group>
 
-    {/* <Button onClick={createFile}>Do something with fs</Button>
-
-    <Button onClick={toggleFullscreen}>Toggle Fullscreen</Button>
-
-    <Button onClick={() => notifications.show({ title: 'Mantine Notification', message: 'test v6 breaking change' })}>Notification example</Button>
-
-    <Title order={4}>Interpolating components in translations</Title>
-    <Trans i18nKey='transExample'
-      values={{ variable: 'github.com/elibroftw/modern-desktop-template' }}
-      components={[<Anchor href='https://github.com/elibroftw/modern-desktop-app-template' />]}
-      // optional stuff:
-      default='FALLBACK if key does not exist. This template is from <0>github.com{{variable}}</0>' t={t} /> */}
-
-    {/* {loading ? <Text>Loading Tauri Store</Text> :
-			<>
-				<TextInput label={'Persistent data'} value={apiEndpoint} onChange={e => setExampleData(e.currentTarget.value)} />
-				<Button onClick={() => revealItemInDir(storeName)}>Reveal store file in file directory</Button>
-			</>
-		} */}
   </Stack>
 }
