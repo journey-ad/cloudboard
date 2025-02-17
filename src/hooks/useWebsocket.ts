@@ -50,6 +50,7 @@ const useWebsocketConnection = ({ url }: { url: string }, shouldConnect = true) 
 
   return {
     socket: socketRef.current,
+    socketRef,
     isConnected,
     emit: (event: string, data: any) => {
       socketRef.current?.emit(event, data);

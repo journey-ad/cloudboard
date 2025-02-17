@@ -190,7 +190,7 @@ export default function ExampleView() {
    * @param {object} props WebSocket配置
    * @param {boolean} shouldConnect 是否应该连接
    */
-  const { socket, isConnected } = useWebsocketConnection({
+  const { socket, socketRef, isConnected } = useWebsocketConnection({
     url: new URL(apiBaseUrlRef.current).host
   }, !loading);
 
@@ -201,6 +201,8 @@ export default function ExampleView() {
 
       socket?.emit('auth', apiKeyRef.current);
       socket?.on('clipboard:sync', async (data) => {
+        if (data.sourceId === socket.id) return
+
         console.log('[clipboard] recv ===============>', data);
 
         const clipboardData: ClipboardData = {
@@ -286,14 +288,15 @@ export default function ExampleView() {
       body: JSON.stringify({
         type,
         content,
-        key: apiKeyRef.current
+        key: apiKeyRef.current,
+        clientId: socketRef.current?.id
       })
     });
 
     if (result) {
       console.log('[clipboard] upload success:', result);
     }
-  }, [syncClipboard, apiBaseUrlRef, apiKeyRef]);
+  }, [syncClipboard, apiBaseUrlRef, apiKeyRef, socket]);
 
   // 添加一个引用来存储最后处理的内容
   const lastContentRef = useRef<string>('');
@@ -326,15 +329,13 @@ export default function ExampleView() {
       console.log('[clipboard] skip duplicate content');
       return;
     }
-
     lastContentRef.current = processedContent;
-
-    // 在写入剪贴板前设置标记，表示这是程序写入的数据
-    isProgramWriteRef.current = true;
 
     // 写入剪贴板
     try {
-      await writeToClipboard(type as ClipboardDataType, processedContent, plaintext);
+      // 在写入剪贴板前设置标记，表示这是程序写入的数据
+      isProgramWriteRef.current = true;
+      await writeToClipboard(type, processedContent, plaintext);
     } catch (error) {
       console.error('[clipboard] failed to write clipboard:', error);
       return;
