@@ -9,6 +9,7 @@ type ClipboardSource = 'local' | 'remote';
 interface ClipboardData {
   type: ClipboardDataType;
   content: string;
+  plaintext?: string | undefined;
   source: ClipboardSource;
 }
 

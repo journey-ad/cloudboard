@@ -2,7 +2,7 @@
 import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Stack, Switch, Text, TextInput, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Trans, useTranslation } from 'react-i18next';
-import { notify, join, decryptContent, encryptContent, writeToClipboard } from '../common/utils';
+import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData } from '../common/utils';
 import { createStorage } from '../tauri/storage';
 import { APP_NAME, RUNNING_IN_TAURI, useMinWidth, useTauriContext } from '../tauri/TauriProvider';
 import { useCallback, useEffect, useState, useRef } from 'react';
@@ -11,6 +11,7 @@ import clipboard from "tauri-plugin-clipboard-api";
 import useWebsocketConnection from '../hooks/useWebsocket';
 import { API_CONSTANTS, PASSWORD_CONSTANTS } from '../constants';
 import { useRequest } from '../hooks/useRequest';
+import { debounce } from 'lodash-es';
 
 interface ApiKeyResponse {
   key: string;
@@ -213,9 +214,10 @@ export default function ExampleView() {
     }
   }, [isConnected, socket, apiKeyRef.current]);
 
-  const isRemoteData = useRef(false);
+  const isProgramWriteRef = useRef(false);
   // 监听本地剪贴板变化
   const isListening = useRef(false);
+
   useEffect(() => {
     if (isListening.current) {
       return;
@@ -227,64 +229,34 @@ export default function ExampleView() {
     let unlistenStart: () => void;
 
     const setupClipboardListeners = async () => {
+      console.log('[clipboard] setupClipboardListeners');
       try {
-        unlistenUpdate = await clipboard.onClipboardUpdate(async () => {
-          console.log('[clipboard] onClipboardUpdate');
+        // 创建防抖的剪贴板处理函数
+        const debouncedClipboardHandler = debounce(async () => {
+          console.log('[clipboard] debouncedClipboardHandler');
 
-          // 如果是远程数据触发的变化,跳过处理
-          if (isRemoteData.current) {
-            console.log('[clipboard] skip remote change');
-            isRemoteData.current = false;
+          // 如果是程序写入的数据,跳过处理
+          if (isProgramWriteRef.current) {
+            console.log('[clipboard] skip program write');
+            isProgramWriteRef.current = false;
             return;
           }
 
-          const has = {
-            hasText: await clipboard.hasText(),
-            hasImage: await clipboard.hasImage(),
-            hasHTML: await clipboard.hasHTML(),
-            hasRTF: await clipboard.hasRTF(),
-            hasFiles: await clipboard.hasFiles(),
-          }
+          const clipboardData = await readClipboardData();
 
-          let clipboardData: ClipboardData | null = null;
-
-          if (has.hasText) {
-            const text = await clipboard.readText();
-            clipboardData = {
-              type: 'text',
-              content: text,
-              source: 'local'
-            };
-          } else if (has.hasImage) {
-            const image = await clipboard.readImageBase64();
-            clipboardData = {
-              type: 'image',
-              content: image,
-              source: 'local'
-            };
-          } else if (has.hasHTML) {
-            const html = await clipboard.readHtml();
-            clipboardData = {
-              type: 'html',
-              content: html,
-              source: 'local'
-            };
-          } else if (has.hasRTF) {
-            const rtf = await clipboard.readRtf();
-            clipboardData = {
-              type: 'rtf',
-              content: rtf,
-              source: 'local'
-            };
-          }
+          console.log('[clipboard] clipboardData:', clipboardData);
 
           if (clipboardData) {
             await handleClipboardData(clipboardData);
           }
+        }, 2000, { 
+          leading: false, 
+          trailing: true
         });
 
+        unlistenUpdate = await clipboard.onClipboardUpdate(debouncedClipboardHandler);
+
         unlistenStart = await clipboard.startListening();
-        isListening.current = false;
       } catch (error) {
         console.error('[clipboard] setup error:', error);
       }
@@ -336,17 +308,18 @@ export default function ExampleView() {
     e2ePasswordRef.current = password;
   }, [enableE2E, password]);
 
-
   /**
    * @description 处理剪贴板数据
    */
   const handleClipboardData = useCallback(async (data: ClipboardData) => {
-    const { type, content, source } = data;
+    const { type, content, source, plaintext } = data;
 
     // 处理内容
-    const processedContent = source === 'remote' && enableE2ERef.current
-      ? decryptContent(content, e2ePasswordRef.current)
-      : content;
+    let processedContent = content;
+    if (source === 'remote' && enableE2ERef.current) {
+      processedContent = decryptContent(content, e2ePasswordRef.current);
+      console.log('[clipboard] decrypt content:', processedContent);
+    }
 
     // 跳过重复内容
     if (processedContent === lastContentRef.current) {
@@ -356,14 +329,12 @@ export default function ExampleView() {
 
     lastContentRef.current = processedContent;
 
-    // 设置远程变更标记
-    if (source === 'remote') {
-      isRemoteData.current = true;
-    }
+    // 在写入剪贴板前设置标记，表示这是程序写入的数据
+    isProgramWriteRef.current = true;
 
     // 写入剪贴板
     try {
-      await writeToClipboard(type as ClipboardDataType, processedContent);
+      await writeToClipboard(type as ClipboardDataType, processedContent, plaintext);
     } catch (error) {
       console.error('[clipboard] failed to write clipboard:', error);
       return;
