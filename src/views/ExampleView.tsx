@@ -1,11 +1,12 @@
 // component example
-import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Stack, Switch, Text, TextInput, Title } from '@mantine/core';
+import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Stack, Switch, Text, TextInput, Title, Tooltip } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { IconFingerprint } from '@tabler/icons-react';
 import { Trans, useTranslation } from 'react-i18next';
 import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData } from '../common/utils';
 import { createStorage } from '../tauri/storage';
 import { APP_NAME, RUNNING_IN_TAURI, useMinWidth, useTauriContext } from '../tauri/TauriProvider';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import * as Autostart from '@tauri-apps/plugin-autostart';
 import clipboard from "tauri-plugin-clipboard-api";
 import useWebsocketConnection from '../hooks/useWebsocket';
@@ -22,7 +23,7 @@ interface SyncResponse {
   message?: string;
 }
 
-export default function ExampleView() {
+export default function MainView() {
   const { t, i18n } = useTranslation();
   const { fileSep, documents, loading: tauriLoading } = useTauriContext();
 
@@ -108,17 +109,25 @@ export default function ExampleView() {
    * @description 更新API基础URL
    */
   const changeApiBaseUrl = useCallback((url: string) => {
-    const REGEX = /^https?:\/\/.*$/;
-    if (!REGEX.test(url)) {
+    try {
+      const REGEX = /^https?:\/\/.*$/;
+      const parsedUrl = new URL(url);
+
+      if (!REGEX.test(parsedUrl.toString())) {
+        throw new Error('Invalid API Endpoint');
+      }
+
+      setApiBaseUrl(parsedUrl.toString());
+      setTmpUrl(parsedUrl.toString());
+    } catch (error) {
+      console.error('[MainView] changeApiBaseUrl error:', error);
       notifications.show({
-        title: 'Error',
-        message: 'Invalid API Endpoint',
-        color: 'red'
+        title: t('Error'),
+        message: t('Invalid API Endpoint'),
+        color: 'red',
       });
       return;
     }
-
-    setApiBaseUrl(url);
   }, [setApiBaseUrl]);
 
   const systemLanguage = navigator.language.split('-')[0];
@@ -136,7 +145,7 @@ export default function ExampleView() {
     apiBaseUrlRef.current = apiBaseUrl;
     apiKeyRef.current = apiKey;
 
-    console.log('[ExampleView] useEffect', apiBaseUrl, apiKey);
+    console.log('[MainView] useEffect', apiBaseUrl, apiKey);
   }, [loading, apiBaseUrl, apiKey]);
 
   useEffect(() => {
@@ -185,14 +194,37 @@ export default function ExampleView() {
     setAutostart();
   }, [startAtLogin, setStartAtLogin]);
 
+
+  const wsUrl = useMemo(() => {
+    return new URL(apiBaseUrl).origin;
+  }, [apiBaseUrl]);
+
   /**
    * 使用WebSocket连接
    * @param {object} props WebSocket配置
    * @param {boolean} shouldConnect 是否应该连接
    */
-  const { socket, socketRef, isConnected } = useWebsocketConnection({
-    url: new URL(apiBaseUrlRef.current).host
+  const { socket, socketRef, isConnecting, isConnected, error } = useWebsocketConnection({
+    url: wsUrl
   }, !loading);
+
+  const socketState = useMemo(() => {
+    if (isConnecting) return 0;
+    if (isConnected) return 1;
+    if (error) return 2;
+    return 3;
+  }, [isConnected, isConnecting, error]);
+
+  const socketStateText = useMemo(() => {
+    return t(['Connecting', 'Connected', 'Connection Error', 'Disconnected'][socketState]);
+  }, [socketState, t]);
+
+  const socketStateColor = useMemo(() => {
+    if (isConnecting) return 'yellow';
+    if (isConnected) return 'green';
+    if (error) return 'red';
+    return 'dimmed';
+  }, [isConnected, isConnecting, error]);
 
   // 监听云端剪贴板变化
   useEffect(() => {
@@ -234,29 +266,26 @@ export default function ExampleView() {
       console.log('[clipboard] setupClipboardListeners');
       try {
         // 创建防抖的剪贴板处理函数
-        const debouncedClipboardHandler = debounce(async () => {
-          console.log('[clipboard] debouncedClipboardHandler');
+        const onClipboardUpdate = debounce(
+          async () => {
+            // 如果是程序写入的数据,跳过处理
+            if (isProgramWriteRef.current) {
+              isProgramWriteRef.current = false;
+              return;
+            }
 
-          // 如果是程序写入的数据,跳过处理
-          if (isProgramWriteRef.current) {
-            console.log('[clipboard] skip program write');
-            isProgramWriteRef.current = false;
-            return;
-          }
+            const clipboardData = await readClipboardData();
 
-          const clipboardData = await readClipboardData();
+            console.log('[clipboard] clipboardData:', clipboardData);
 
-          console.log('[clipboard] clipboardData:', clipboardData);
+            if (clipboardData) {
+              await handleClipboardData(clipboardData);
+            }
+          }, 2000,
+          { leading: false, trailing: true }
+        );
 
-          if (clipboardData) {
-            await handleClipboardData(clipboardData);
-          }
-        }, 2000, { 
-          leading: false, 
-          trailing: true
-        });
-
-        unlistenUpdate = await clipboard.onClipboardUpdate(debouncedClipboardHandler);
+        unlistenUpdate = await clipboard.onClipboardUpdate(onClipboardUpdate);
 
         unlistenStart = await clipboard.startListening();
       } catch (error) {
@@ -358,6 +387,12 @@ export default function ExampleView() {
     return <Center h={'100%'}><Loader size={'lg'} /></Center>;
   }
 
+  const SocketState = () => {
+    return <Tooltip label={<Text size='xs'>{socketStateText}<br />Client ID: {socketRef.current?.id}</Text>} arrowSize={10} withArrow position="top-start">
+      <Text c={socketStateColor} size='xs'>●</Text>
+    </Tooltip>
+  }
+
   // <> is an alias for <React.Fragment>
   return <Stack h={'100%'} gap={'sm'}>
     <Group justify='end' wrap="nowrap" gap="xs" style={{ marginBottom: '-.5rem' }}>
@@ -369,6 +404,7 @@ export default function ExampleView() {
     <Group justify="space-between" wrap="nowrap">
       <div style={{ width: '100%' }}>
         <TextInput
+          leftSection={<SocketState />}
           placeholder={t('Input API Endpoint')}
           value={tmpUrl}
           onBlur={() => changeApiBaseUrl(tmpUrl)}
@@ -389,6 +425,7 @@ export default function ExampleView() {
     <Group justify="space-between" wrap="nowrap">
       <div style={{ width: '100%' }}>
         <PasswordInput
+          leftSection={<IconFingerprint size={20} strokeWidth={1.5} />}
           placeholder={t('Input End-to-End Password')}
           value={password}
           minLength={PASSWORD_CONSTANTS.MIN_LENGTH}

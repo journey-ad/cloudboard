@@ -47,6 +47,9 @@ dependencies:
   '@mantine/tiptap':
     specifier: ^7.15.1
     version: 7.16.3(@mantine/core@7.16.3)(@mantine/hooks@7.16.3)(@tiptap/extension-link@2.11.5)(@tiptap/react@2.11.5)(react-dom@19.0.0)(react@19.0.0)
+  '@tabler/icons-react':
+    specifier: ^3.30.0
+    version: 3.30.0(react@19.0.0)
   '@tauri-apps/api':
     specifier: ^2.1.1
     version: 2.2.0
@@ -1387,6 +1390,19 @@ packages:
     dependencies:
       '@swc/counter': 0.1.3
     dev: true
+
+  /@tabler/icons-react@3.30.0(react@19.0.0):
+    resolution: {integrity: sha512-9KZ9D1UNAyjlLkkYp2HBPHdf6lAJ2aelDqh8YYAnnmLF3xwprWKxxW8+zw5jlI0IwdfN4XFFuzqePkaw+DpIOg==}
+    peerDependencies:
+      react: '>= 16'
+    dependencies:
+      '@tabler/icons': 3.30.0
+      react: 19.0.0
+    dev: false
+
+  /@tabler/icons@3.30.0:
+    resolution: {integrity: sha512-c8OKLM48l00u9TFbh2qhSODMONIzML8ajtCyq95rW8vzkWcBrKRPM61tdkThz2j4kd5u17srPGIjqdeRUZdfdw==}
+    dev: false
 
   /@tauri-apps/api@2.0.1:
     resolution: {integrity: sha512-eoQWT+Tq1qSwQpHV+nw1eNYe5B/nm1PoRjQCRiEOS12I1b+X4PUcREfXVX8dPcBT6GrzWGDtaecY0+1p0Rfqlw==}

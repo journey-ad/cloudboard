@@ -49,7 +49,7 @@ export default function Mantine({ children }: PropsWithChildren) {
 		<ColorSchemeScript defaultColorScheme='auto' />
 		<MantineProvider defaultColorScheme='auto' theme={theme} cssVariablesResolver={cssVariablesResolver}>
 			<ModalsProvider>
-				<Notifications />
+				<Notifications limit={3} autoClose={2000} />
 				{children}
 			</ModalsProvider>
 		</MantineProvider>

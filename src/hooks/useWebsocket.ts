@@ -1,70 +1,130 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 
-/**
- * WebSocket连接Hook
- * @param {object} config - WebSocket配置
- * @param {string} config.url - WebSocket服务器URL
- * @param {boolean} shouldConnect - 是否应该建立连接
- * @returns {object} WebSocket连接状态和实例
- */
-const useWebsocketConnection = ({ url }: { url: string }, shouldConnect = true) => {
+interface WebSocketConfig {
+  url: string;
+  reconnectAttempts?: number;
+  reconnectInterval?: number;
+}
+
+interface WebSocketState {
+  isConnecting: boolean;
+  isConnected: boolean;
+  error: Error | null;
+}
+
+interface WebSocketReturn extends WebSocketState {
+  socket: Socket | null;
+  socketRef: React.MutableRefObject<Socket | null>;
+  emit: <T>(event: string, data: T) => void;
+  on: <T>(event: string, callback: (data: T) => void) => void;
+  off: <T>(event: string, callback: (data: T) => void) => void;
+  connect: () => void;
+  disconnect: () => void;
+}
+
+const DEFAULT_RECONNECT_ATTEMPTS = 3;
+const DEFAULT_RECONNECT_INTERVAL = 3000;
+
+const useWebsocketConnection = (
+  config: WebSocketConfig,
+  shouldConnect = true
+): WebSocketReturn => {
+  const { url, reconnectAttempts = DEFAULT_RECONNECT_ATTEMPTS, reconnectInterval = DEFAULT_RECONNECT_INTERVAL } = config;
   const socketRef = useRef<Socket | null>(null);
+  const reconnectCountRef = useRef(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>(null);
 
-  const [isConnected, setIsConnected] = useState(false);
+  const [state, setState] = useState<WebSocketState>({
+    isConnecting: false,
+    isConnected: false,
+    error: null,
+  });
 
-  function socketClient() {
+  const cleanup = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+    }
+  }, []);
+
+  const connect = useCallback(() => {
+    cleanup();
+    setState(prev => ({ ...prev, isConnecting: true }));
+
     const socket = io(url, {
-      transports: ['websocket']
+      transports: ['websocket'],
+      reconnection: false, // 我们自己处理重连逻辑
     });
 
     socket.on('connect', () => {
-      console.log('Connected to server');
-      setIsConnected(true);
+      reconnectCountRef.current = 0;
+      setState({
+        isConnecting: false,
+        isConnected: true,
+        error: null,
+      });
     });
 
     socket.on('disconnect', () => {
-      console.log('Disconnected from server');
-      setIsConnected(false);
+      setState(prev => ({
+        ...prev,
+        isConnected: false,
+        isConnecting: false,
+      }));
+
+      // 尝试重连
+      if (reconnectCountRef.current < reconnectAttempts) {
+        reconnectCountRef.current += 1;
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connect();
+        }, reconnectInterval);
+      }
     });
 
-    socket.on('error', (error) => {
-      console.error('WebSocket error:', error);
+    socket.on('connect_error', (error: Error) => {
+      setState({
+        isConnecting: false,
+        isConnected: false,
+        error,
+      });
     });
 
     socketRef.current = socket;
-  }
+  }, [url, reconnectAttempts, reconnectInterval, cleanup]);
 
   useEffect(() => {
-    if (!shouldConnect) {
-      return;
+    if (shouldConnect) {
+      connect();
     }
+    return cleanup;
+  }, [shouldConnect, connect, cleanup]);
 
-    socketClient();
+  const emit = useCallback(<T,>(event: string, data: T) => {
+    socketRef.current?.emit(event, data);
+  }, []);
 
-    return () => {
-      setIsConnected(false);
-      socketRef.current?.disconnect();
-    };
-  }, [shouldConnect, url]);
+  const on = useCallback(<T,>(event: string, callback: (data: T) => void) => {
+    socketRef.current?.on(event, callback);
+  }, []);
+
+  const off = useCallback(<T,>(event: string, callback: (data: T) => void) => {
+    socketRef.current?.off(event, callback);
+  }, []);
 
   return {
+    ...state,
     socket: socketRef.current,
     socketRef,
-    isConnected,
-    emit: (event: string, data: any) => {
-      socketRef.current?.emit(event, data);
-    },
-    on: (event: string, callback: (data: any) => void) => {
-      socketRef.current?.on(event, callback);
-    },
-    connect: () => {
-      socketRef.current?.connect();
-    },
-    disconnect: () => {
-      socketRef.current?.disconnect();
-    }
+    emit,
+    on,
+    off,
+    connect,
+    disconnect: cleanup,
   };
-}
+};
 
 export default useWebsocketConnection;
