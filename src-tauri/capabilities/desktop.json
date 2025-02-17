@@ -30,7 +30,10 @@
     "autostart:allow-is-enabled",
     "clipboard:read-all",
     "clipboard:write-all",
-    "clipboard:monitor-all"
+    "clipboard:monitor-all",
+    "core:window:allow-close",
+    "core:window:allow-hide",
+    "core:window:allow-set-size-constraints"
   ],
   "security": {
     "csp": null,

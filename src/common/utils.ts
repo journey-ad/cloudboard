@@ -2,6 +2,8 @@ import Cookies from 'js-cookie';
 import localforage from 'localforage';
 import { Dispatch, SetStateAction, useEffect, useLayoutEffect, useState } from 'react';
 import packageJson from '../../package.json';
+import * as CryptoJS from 'crypto-js';
+import clipboard from "tauri-plugin-clipboard-api";
 export { localforage };
 
 export const VERSION = packageJson.version;
@@ -112,3 +114,31 @@ export function join(separator: string, ...segments: string[]): string | null {
 	if (segments.find(x => !(typeof x === 'string'))) return null;
 	return segments.join(separator);
 }
+
+  /**
+   * @description 加密内容
+   */
+export function encryptContent(content: string, password: string): string {
+	return CryptoJS.AES.encrypt(content, password).toString();
+};
+
+/**
+ * @description 解密内容
+ */
+export function decryptContent(content: string, password: string): string {
+	return CryptoJS.AES.decrypt(content, password).toString(CryptoJS.enc.Utf8) || content;
+};
+
+/**
+ * @description 写入剪贴板
+ */
+export async function writeToClipboard(type: ClipboardDataType, content: string) {
+  const writers = {
+    text: () => clipboard.writeText(content),
+    image: () => clipboard.writeImageBase64(content),
+    html: () => clipboard.writeHtml(content),
+    rtf: () => clipboard.writeRtf(content)
+  };
+
+  await writers[type]();
+}	

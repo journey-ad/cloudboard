@@ -14,6 +14,7 @@ use tauri::{
 };
 use tauri_plugin_store;
 use tauri_plugin_window_state;
+use tauri_plugin_autostart::MacosLauncher;
 
 mod tray_icon;
 mod utils;
@@ -59,10 +60,7 @@ pub fn run() {
   // main window should be invisible to allow either the setup delay or the plugin to show the window
   tauri::Builder::default()
     .plugin(tauri_plugin_clipboard::init())
-    .plugin(tauri_plugin_autostart::init(
-      tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-      Some(vec!["--flag1", "--flag2"]), /* arbitrary number of args to pass to your app */
-    ))
+    .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--flag1", "--flag2"]) /* arbitrary number of args to pass to your app */))
     .plugin(tauri_plugin_log::Builder::new().build())
     .plugin(tauri_plugin_opener::init())
     .plugin(tauri_plugin_store::Builder::new().build())
@@ -92,6 +90,9 @@ pub fn run() {
       app.manage(Mutex::new(TrayState::NotPlaying));
 
       let app_handle = app.handle().clone();
+      tray_update_lang(app_handle, "en".into());
+
+      let app_handle = app.handle().clone();
       tauri::async_runtime::spawn(async move { long_running_thread(&app_handle).await });
 
       #[cfg(target_os = "linux")]
@@ -113,3 +114,10 @@ pub fn run() {
 
 // TODO: optimize permissions
 // TODO: decorations false and use custom title bar
+
+#[tauri::command] 
+fn handle_window_close_event(app: tauri::AppHandle) {
+  if let Some(window) = app.get_webview_window("main") {
+    window.hide().unwrap();
+  }
+}

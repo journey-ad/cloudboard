@@ -33,23 +33,12 @@ pub fn create_tray_menu<R: Runtime>(
   // ENTER rust_i18n::set_locale(lang) IF LOCAL=lang DOES NOT COMPILE
   // .add_item("id".to_string(), t!("Label", locale = lang))
   // .add_item("id".to_string(), t!("Label")
-  let toggle = MenuItemBuilder::with_id("toggle-visibility", "Hide Window")
-    .accelerator("Ctrl+Shift+T")
-    .build(app)?;
   MenuBuilder::new(app)
     .items(&[
-      &SubmenuBuilder::new(app, "Sub Menu!")
-        // .item(...)
-        // .items(...)
-        .text("bf-sep", "Before Separator")
-        .separator()
-        .text("af-sep", "After Separator")
-        .build()?,
-      &toggle,
-      &MenuItemBuilder::with_id("quit", "Quit")
-        .accelerator("Ctrl+Q")
+      &MenuItemBuilder::with_id("show-window", "Show Window")
         .build(app)?,
-      &MenuItemBuilder::with_id("toggle-tray-icon", "Toggle the tray icon").build(app)?,
+      &MenuItemBuilder::with_id("quit", "Quit")
+        .build(app)?,
     ])
     .build()
 }
@@ -59,7 +48,7 @@ static TRAY_ID: &'static str = "tray-main";
 pub fn create_tray_icon(app: &tauri::AppHandle) -> Result<TrayIcon, tauri::Error> {
   TrayIconBuilder::with_id(TRAY_ID)
     .menu(&create_tray_menu(app, "en".into())?)
-    .menu_on_left_click(true)
+    // .menu_on_left_click(true)
     .on_menu_event(move |app, event| {
       if let Some(main_window) = app.get_webview_window("main") {
         let _ = main_window.emit("systemTray", IconTrayPayload::new(&event.id().as_ref()));
@@ -73,29 +62,11 @@ pub fn create_tray_icon(app: &tauri::AppHandle) -> Result<TrayIcon, tauri::Error
         "quit" => {
           std::process::exit(0);
         }
-        "toggle-tray-icon" => {
-          let tray_state_mutex = app.state::<Mutex<TrayState>>();
-          let mut tray_state = tray_state_mutex.lock().unwrap();
-          match *tray_state {
-            TrayState::NotPlaying => {
-              tray_icon
-                .set_icon(
-                  tauri::image::Image::from_bytes(include_bytes!("../icons/SystemTray2.ico")).ok(),
-                )
-                .unwrap();
-              *tray_state = TrayState::Playing;
-            }
-            TrayState::Playing => {
-              tray_icon
-                .set_icon(
-                  tauri::image::Image::from_bytes(include_bytes!("../icons/SystemTray1.ico")).ok(),
-                )
-                .unwrap();
-              *tray_state = TrayState::NotPlaying;
-            }
-            TrayState::Paused => {}
-          };
-        }
+        "show-window" => {
+          if let Some(main_window) = app.get_webview_window("main") {
+            main_window.show().unwrap();
+          }
+        } 
         "toggle-visibility" => {
           if let Some(main_window) = app.get_webview_window("main") {
             // update menu item example (TODO: support tauri v2)
@@ -147,4 +118,11 @@ pub fn tray_update_lang(app: tauri::AppHandle, lang: String) {
   if let Some(t) = tray_handle {
     t.set_menu(create_tray_menu(&app, lang).ok());
   }
+  
+  let tray_icon = app.tray_by_id(TRAY_ID).unwrap();
+  tray_icon
+    .set_icon(
+      tauri::image::Image::from_bytes(include_bytes!("../icons/SystemTray1.ico")).ok(),
+    )
+    .unwrap();
 }

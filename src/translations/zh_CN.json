@@ -17,7 +17,7 @@
 	"OFF": "OFF",
 	"API Endpoint": "API 接口地址",
 	"Input API Endpoint": "输入 API 接口地址",
-	"Get-Key": "获取 API Key",
+	"Get-Key": "复制 API Key",
 	"API Key has been copied to the clipboard": "API Key 已复制到剪贴板，请前往添加快捷指令",
 	"End-to-End Encryption": "端到端加密",
 	"Input End-to-End Password": "输入端到端加密密码",

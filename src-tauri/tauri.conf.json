@@ -55,7 +55,7 @@
   },
   "app": {
     "security": {
-      "csp": "default-src blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'; connect-src ipc: http://ipc.localhost ws: wss: http: https: 'self'"
     },
     "windows": [
       {
@@ -67,16 +67,14 @@
         "height": 260,
         "resizable": false,
         "fullscreen": false,
-        "visible": false,
+        "visible": true,
         "decorations": true,
         "alwaysOnTop": true,
-        "useHttpsScheme": true
+        "maximizable": false,
+        "minimizable": false,
+        "closable": true
       }
     ],
-    "trayIcon": {
-      "iconPath": "icons/SystemTray1.ico",
-      "iconAsTemplate": true
-    },
     "withGlobalTauri": false
   }
 }

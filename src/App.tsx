@@ -26,8 +26,9 @@ interface View {
 export default function () {
   const { t } = useTranslation();
 
-  const { toggleColorScheme } = useMantineColorScheme();
+  const { setColorScheme, toggleColorScheme } = useMantineColorScheme();
   const colorScheme = useComputedColorScheme();
+  setColorScheme("auto");
   useHotkeys([['ctrl+J', toggleColorScheme]]);
 
   // Tauri event listeners (run on mount)
@@ -43,48 +44,48 @@ export default function () {
       const promise = tauriEvent.listen('systemTray', ({ payload, ...eventObj }: { payload: { message: string } }) => {
         tauriLogger.info(payload.message);
         // for debugging purposes only
-        notifications.show({
-          title: '[DEBUG] System Tray Event',
-          message: payload.message
-        });
+        // notifications.show({
+        //   title: '[DEBUG] System Tray Event',
+        //   message: payload.message
+        // });
       });
       return () => { promise.then(unlisten => unlisten()) };
     }, []);
 
     // update checker
-    useEffect(() => {
-      (async () => {
-        const update = await tauriUpdater.check();
-        if (update) {
-          const color = colorScheme === 'dark' ? 'teal' : 'teal.8';
-          notifications.show({
-            id: 'UPDATE_NOTIF',
-            title: t('updateAvailable', { v: update.version }),
-            color,
-            message: <>
-              <Text>{update.body}</Text>
-              <Button color={color} style={{ width: '100%' }} onClick={() => update.downloadAndInstall(event => {
-                switch (event.event) {
-                  case 'Started':
-                    notifications.show({ title: t('installingUpdate', { v: update.version }), message: t('relaunchMsg'), autoClose: false });
-                    // contentLength = event.data.contentLength;
-                    // tauriLogger.info(`started downloading ${event.data.contentLength} bytes`);
-                    break;
-                  case 'Progress':
-                    // downloaded += event.data.chunkLength;
-                    // tauriLogger.info(`downloaded ${downloaded} from ${contentLength}`);
-                    break;
-                  case 'Finished':
-                    // tauriLogger.info('download finished');
-                    break;
-                }
-              }).then(relaunch)}>{t('installAndRelaunch')}</Button>
-            </>,
-            autoClose: false
-          });
-        }
-      })()
-    }, []);
+    // useEffect(() => {
+    //   (async () => {
+    //     const update = await tauriUpdater.check();
+    //     if (update) {
+    //       const color = colorScheme === 'dark' ? 'teal' : 'teal.8';
+    //       notifications.show({
+    //         id: 'UPDATE_NOTIF',
+    //         title: t('updateAvailable', { v: update.version }),
+    //         color,
+    //         message: <>
+    //           <Text>{update.body}</Text>
+    //           <Button color={color} style={{ width: '100%' }} onClick={() => update.downloadAndInstall(event => {
+    //             switch (event.event) {
+    //               case 'Started':
+    //                 notifications.show({ title: t('installingUpdate', { v: update.version }), message: t('relaunchMsg'), autoClose: false });
+    //                 // contentLength = event.data.contentLength;
+    //                 // tauriLogger.info(`started downloading ${event.data.contentLength} bytes`);
+    //                 break;
+    //               case 'Progress':
+    //                 // downloaded += event.data.chunkLength;
+    //                 // tauriLogger.info(`downloaded ${downloaded} from ${contentLength}`);
+    //                 break;
+    //               case 'Finished':
+    //                 // tauriLogger.info('download finished');
+    //                 break;
+    //             }
+    //           }).then(relaunch)}>{t('installAndRelaunch')}</Button>
+    //         </>,
+    //         autoClose: false
+    //       });
+    //     }
+    //   })()
+    // }, []);
 
     // Handle additional app launches (url, etc.)
     useEffect(() => {
@@ -104,6 +105,31 @@ export default function () {
         }
       });
       return () => { promise.then(unlisten => unlisten()) };
+    }, []);
+
+    // 监听窗口关闭事件
+    useEffect(() => {
+      if (RUNNING_IN_TAURI) {
+        const appWindow = getCurrentWebviewWindow();
+        
+        // 监听窗口关闭事件
+        const unlisten = appWindow.onCloseRequested(async (event) => {
+          try {
+            // 阻止默认关闭行为
+            event.preventDefault();
+            // 隐藏窗口
+            await appWindow.hide();
+            console.log('Window hidden successfully');
+          } catch (error) {
+            console.error('Error hiding window:', error);
+          }
+        });
+
+        // 清理函数
+        return () => {
+          unlisten.then(fn => fn());
+        };
+      }
     }, []);
   }
 
