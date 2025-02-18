@@ -20,7 +20,7 @@ mod tray_icon;
 mod utils;
 
 use tray_icon::{create_tray_icon, tray_update_lang, TrayState};
-use utils::long_running_thread;
+// use utils::long_running_thread;
 
 #[derive(Clone, Serialize)]
 struct SingleInstancePayload {
@@ -92,8 +92,8 @@ pub fn run() {
       let app_handle = app.handle().clone();
       tray_update_lang(app_handle, "en".into());
 
-      let app_handle = app.handle().clone();
-      tauri::async_runtime::spawn(async move { long_running_thread(&app_handle).await });
+      // let app_handle = app.handle().clone();
+      // tauri::async_runtime::spawn(async move { long_running_thread(&app_handle).await });
 
       #[cfg(target_os = "linux")]
       app.manage(DbusState(Mutex::new(

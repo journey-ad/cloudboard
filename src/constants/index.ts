@@ -15,10 +15,21 @@ export const PASSWORD_CONSTANTS = {
   MAX_LENGTH: 32
 } as const;
 
-// 状态配置映射
-export const SOCKET_CONFIG = {
-  CONNECTING: { text: 'Connecting', color: 'yellow' },
-  CONNECTED: { text: 'Connected', color: 'green' },
-  ERROR: { text: 'Connection Error', color: 'red' },
-  DISCONNECTED: { text: 'Disconnected', color: 'dimmed' }
+/**
+ * @description 状态配置映射
+ */
+export const SOCKET_STATE = {
+  CONNECTING: 0,
+  CONNECTED: 1,
+  ERROR: 2,
+  DISCONNECTED: 3
 } as const;
+
+export const SOCKET_CONFIG = {
+  [SOCKET_STATE.CONNECTING]: { text: 'Connecting', color: 'yellow' },
+  [SOCKET_STATE.CONNECTED]: { text: 'Connected', color: 'green' },
+  [SOCKET_STATE.ERROR]: { text: 'Connection Error', color: 'red' },
+  [SOCKET_STATE.DISCONNECTED]: { text: 'Disconnected', color: 'dimmed' }
+} as const;
+
+export * from './notification';

@@ -1,3 +1,2 @@
-export * from './useFetch';
-export * from './useRequest';
+export * from './useFetchSWR';
 export * from './useWebsocket';

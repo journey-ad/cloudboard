@@ -1,17 +1,16 @@
 // component example
 import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Stack, Switch, Text, TextInput, Title, Tooltip } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
 import { TbFingerprint } from 'react-icons/tb';
 import { Trans, useTranslation } from 'react-i18next';
-import {notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes} from '../common/utils';
+import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification } from '../common/utils';
 import { createStorage } from '../tauri/storage';
 import { APP_NAME, RUNNING_IN_TAURI, useMinWidth, useTauriContext } from '../tauri/TauriProvider';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import * as Autostart from '@tauri-apps/plugin-autostart';
 import clipboard from "tauri-plugin-clipboard-api";
-import { API_CONSTANTS, PASSWORD_CONSTANTS, SOCKET_CONFIG } from '../constants';
-import { useFetch, useRequest, useWebsocket } from '../hooks';
-import { debounce, result } from 'lodash-es';
+import { API_CONSTANTS, NOTIFICATION, PASSWORD_CONSTANTS, SOCKET_STATE, SOCKET_CONFIG } from '../constants';
+import { useFetchSWR, useFetchSWRMutation, useWebsocket } from '../hooks';
+import { debounce } from 'lodash-es';
 
 
 export default function MainView() {
@@ -28,6 +27,8 @@ export default function MainView() {
   const apiBaseUrlRef = useRef(apiBaseUrlConfig);
   const apiKeyRef = useRef(apiKeyConfig);
 
+  const [connectionState, setConnectionState] = useState<typeof SOCKET_STATE[keyof typeof SOCKET_STATE]>(SOCKET_STATE.DISCONNECTED);
+
   // 临时URL状态（仅用于输入框）
   const [apiBaseUrlInputValue, setApiBaseUrlInputValue] = useState(apiBaseUrlConfig);
 
@@ -40,22 +41,22 @@ export default function MainView() {
         throw new Error('Invalid API Endpoint');
       }
 
+      const newUrl = parsedUrl.toString();
+
+      // 未修改时跳过
+      if (apiBaseUrlRef.current === newUrl) return;
+
       // 更新状态值
-      apiBaseUrlRef.current = parsedUrl.toString();
-
-      // 写入配置
-      setApiBaseUrlConfig(parsedUrl.toString());
-
-      // 获取配置
-      getConfig();
+      apiBaseUrlRef.current = newUrl;
+      // 写入配置文件
+      setApiBaseUrlConfig(newUrl);
+      // 获取api配置
+      getConfig({ notify: true });
 
     } catch (error) {
       console.error('[MainView] changeApiBaseUrl error:', error);
-      notifications.show({
-        title: t('Error'),
-        message: t('Invalid API Endpoint'),
-        color: 'red',
-      });
+
+      notification.error(NOTIFICATION.INVALID_API_ENDPOINT);
     }
   }, [setApiBaseUrlConfig, apiBaseUrlRef]);
   // apiBaseUrlRef变更后处理
@@ -76,20 +77,12 @@ export default function MainView() {
   }, [loading, apiBaseUrlConfig]);
 
 
-  // 定义 API 接口
-  // const getApiEndpoint = useCallback(() => {
-  //   if (!apiBaseUrlRef.current) return null;
-
-  //   return {
-  //     keyGen: `${apiBaseUrlRef.current}/key-gen`,
-  //     config: `${apiBaseUrlRef.current}/config`,
-  //     sync: `${apiBaseUrlRef.current}/sync`,
-  //     wsUrl: new URL(apiBaseUrlRef.current).origin
-  //   }
-  // }, [apiBaseUrlRef.current]);
-
   const apiEndpoint = useMemo(() => {
-    if (!apiBaseUrlRef.current) return null;
+    if (!apiBaseUrlRef.current) {
+      return new Proxy({} as any, {
+        get: () => null
+      });
+    }
 
     return {
       keyGen: `${apiBaseUrlRef.current}/key-gen`,
@@ -102,40 +95,70 @@ export default function MainView() {
   /**
    * @description 获取API配置 包含大小限制和过期时间等数据
    */
-  const [apiConfig, setApiConfig] = useState<ConfigResponse | null>(null);
-  const { refetch: getConfig } = useFetch<ConfigResponse>(apiEndpoint?.config, { autoInvoke: false });
+  const hasError = useRef(false); // 当前config接口是否报错
+  const needNotify = useRef(false); // 是否需要通知
+  // config接口变化时重置错误状态
   useEffect(() => {
-    if (!apiBaseUrlRef.current || loading) return;
-    getConfig()
-      .then((res) => {
-        if (!res) return;
-        console.log(`[MainView] getConfig url=${apiEndpoint?.config} res=`, res);
-        setApiConfig(res);
-        copyApiKey(false);
-      })
-      .catch((err) => {
-        console.error(`[MainView] getConfig url=${apiEndpoint?.config} error:`, err);
-        notifications.show({
-          title: t('Error'),
-          message: t('Failed to get API config'),
-          color: 'red'
-        });
-      });
-  }, [getConfig, apiBaseUrlRef.current, loading]);
+    hasError.current = false;
+  }, [apiEndpoint?.config]);
+  // 获取API配置
+  const { data: apiConfig, error: apiConfigError, isLoading: apiConfigLoading, mutate: fetchConfig } = useFetchSWR(apiEndpoint?.config);
+  const getConfig = useCallback(({ notify = false }: { notify?: boolean } = {}) => {
+    needNotify.current = notify;
+    fetchConfig()
+  }, [fetchConfig]);
+  useEffect(() => {
+    if (apiConfigLoading) {
+      // 设置连接状态
+      setConnectionState(SOCKET_STATE.CONNECTING);
+      return;
+    }
+
+    if (apiConfigError) {
+      console.error(`[MainView] getConfig error:`, apiConfigError);
+
+      // 同一config接口，仅首次报错时通知
+      if (!hasError.current) {
+        hasError.current = true;
+        notification.error(NOTIFICATION.GET_CONFIG_FAILED);
+      }
+
+      // 设置连接状态
+      setConnectionState(SOCKET_STATE.ERROR);
+
+      return;
+    }
+
+    // 成功取到数据后
+    // 设置连接状态
+    setConnectionState(SOCKET_STATE.CONNECTED);
+    // 重置错误状态
+    hasError.current = false;
+    // 获取API密钥
+    getApiKey({ copy: false });
+
+    if (needNotify.current) {
+      notification.success(NOTIFICATION.GET_CONFIG_SUCCESS);
+    }
+  }, [apiConfig, apiConfigError, apiConfigLoading, needNotify.current]);
 
 
   /**
    * @description 获取并复制API密钥
    */
-  const { refetch: getApiKey, loading: apiKeyLoading } = useFetch<ApiKeyResponse>(apiEndpoint?.keyGen, { autoInvoke: false });
-  const copyApiKey = useCallback(async (notify = true) => {
+  const fetcher = useCallback(async (url: string, { arg }: { arg: RequestInit }) => {
+    const res = await fetch(url, arg)
+    return res.json()
+  }, [])
+  const { trigger: fetchApiKey, isMutating: apiKeyLoading } = useFetchSWRMutation(apiEndpoint?.keyGen, fetcher)
+  const getApiKey = useCallback(async ({ copy = true }: { copy?: boolean } = {}) => {
     if (apiKeyLoading) return;
 
     // 如果API密钥为空，则获取API密钥
     if (!apiKeyRef.current) {
-      getApiKey()
+      fetchApiKey({})
         .then((res) => {
-          console.log('[MainView] getApiKey res:', res);
+          console.log('[MainView] fetch res:', res);
           if (res?.key) {
             // 写入配置
             apiKeyRef.current = res.key;
@@ -143,21 +166,17 @@ export default function MainView() {
           }
         })
         .catch((err) => {
-          console.error('[MainView] getApiKey error:', err);
+          console.error('[MainView] fetch error:', err);
         });
     }
 
-    if (notify) {
-      // 写入剪贴板
+    // 写入剪贴板
+    if (copy) {
       await clipboard.writeText(apiKeyRef.current);
-      notifications.show({
-        title: t('Success'),
-        message: t('API Key has been copied to the clipboard'),
-        color: 'green'
-      });
+      notification.success(NOTIFICATION.API_KEY_COPIED);
     }
 
-    console.log('[MainView] copyApiKey', apiKeyRef.current);
+    console.log('[MainView] getApiKey', apiKeyRef.current);
   }, [apiKeyLoading, apiKeyRef.current, setApiKeyConfig]);
   useEffect(() => {
     apiKeyRef.current = apiKeyConfig;
@@ -184,11 +203,7 @@ export default function MainView() {
   const encryptionPasswordRef = useRef(password);
   const checkPassword = useCallback((password: string) => {
     // if (password.length < PASSWORD_CONSTANTS.MIN_LENGTH || password.length > PASSWORD_CONSTANTS.MAX_LENGTH) {
-    //   notifications.show({
-    //     title: 'Error',
-    //     message: 'Password must be between 6 and 32 characters',
-    //     color: 'red'
-    //   });
+    //   notification.error(NOTIFICATION.PASSWORD_INVALID);
     //   return false;
     // }
     setPassword(password);
@@ -205,8 +220,11 @@ export default function MainView() {
    */
   const [startAtLogin, setStartAtLogin] = useKVP('startAtLogin', false);
   useEffect(() => {
-    const setAutostart = async () => {
+    if (loading) return;
+
+    (async () => {
       try {
+        console.log('[MainView] setStartAtLogin', startAtLogin);
         if (startAtLogin) {
           await Autostart.enable();
           setStartAtLogin(await Autostart.isEnabled());
@@ -218,10 +236,8 @@ export default function MainView() {
         console.error('设置开机启动失败:', error);
         setStartAtLogin(false);
       }
-    };
-
-    setAutostart();
-  }, []);
+    })();
+  }, [loading, startAtLogin]);
 
 
   /**
@@ -230,13 +246,16 @@ export default function MainView() {
   const { socket, socketRef, isConnecting, isConnected, error } = useWebsocket({
     url: apiEndpoint?.wsUrl
   });
+  useEffect(() => {
+    if (isConnecting) setConnectionState(SOCKET_STATE.CONNECTING);
+    if (isConnected) setConnectionState(SOCKET_STATE.CONNECTED);
+    if (error) setConnectionState(SOCKET_STATE.ERROR);
+    if (!isConnecting && !isConnected && !error) setConnectionState(SOCKET_STATE.DISCONNECTED);
+  }, [isConnecting, isConnected, error]);
   // 获取当前状态
   const socketState = useMemo(() => {
-    if (isConnecting) return SOCKET_CONFIG.CONNECTING;
-    if (isConnected) return SOCKET_CONFIG.CONNECTED;
-    if (error) return SOCKET_CONFIG.ERROR;
-    return SOCKET_CONFIG.DISCONNECTED;
-  }, [isConnected, isConnecting, error]);
+    return SOCKET_CONFIG[connectionState];
+  }, [connectionState]);
   // 获取状态文本和颜色
   const { text: socketStateText, color: socketStateColor } = useMemo(() => ({
     text: t(socketState.text),
@@ -325,9 +344,10 @@ export default function MainView() {
   // 添加一个引用来存储最后处理的内容
   const lastContentRef = useRef<string>('');
   // 上传剪贴板内容
-  const { refetch: syncClipboard } = useFetch<SyncResponse>(apiEndpoint?.sync, { autoInvoke: false });
+  const { trigger: syncClipboard, isMutating: syncClipboardLoading } = useFetchSWRMutation(apiEndpoint?.sync, fetcher)
   const uploadClipboard = useCallback(async ({ type, content }: { type: string, content: string }) => {
     if (!socketRef.current?.id) return;
+    if (syncClipboardLoading) return;
 
     console.log('[clipboard] uploadClipboard:', { type, content });
     syncClipboard({
@@ -342,32 +362,28 @@ export default function MainView() {
         'Content-Type': 'application/json'
       }
     })
-      ?.then((res) => {
-        console.log(apiEndpoint)
+      .then((res) => {
         console.log('[clipboard] upload res:', res);
         if (res?.code === 200) {
-          notifications.show({
-            title: t('Success'),
-            message: t('Clipboard data uploaded successfully'),
-            color: 'green'
+          notification.success({
+            title: "Upload successfully",
+            message: NOTIFICATION.CLIPBOARD_UPLOAD_SUCCESS
           });
         } else {
-          notifications.show({
-            title: t('UploadError'),
-            message: `${res?.code}, ${res?.msg}`,
-            color: 'red'
+          notification.error({
+            title: "Upload failed",
+            message: `${res?.code}, ${res?.msg}`
           });
         }
       })
-      ?.catch((err) => {
+      .catch((err) => {
         console.error('[clipboard] upload error:', err);
-        notifications.show({
-          title: t('Error'),
-          message: t('Failed to upload clipboard data'),
-          color: 'red'
+        notification.error({
+          title: "Upload failed",
+          message: NOTIFICATION.CLIPBOARD_UPLOAD_FAILED
         });
       });
-  }, [syncClipboard, apiKeyRef.current, socketRef.current?.id]);
+  }, [syncClipboard, apiEndpoint, apiKeyRef.current, socketRef.current?.id]);
   const handleClipboardData = useCallback(async (data: ClipboardData) => {
     const { type, content, source, plaintext } = data;
     // 处理内容
@@ -441,13 +457,18 @@ export default function MainView() {
           placeholder={t('Input API Endpoint')}
           value={apiBaseUrlInputValue}
           onBlur={() => changeApiBaseUrl(apiBaseUrlInputValue)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              changeApiBaseUrl(apiBaseUrlInputValue);
+            }
+          }}
           onChange={e => setApiBaseUrlInputValue(e.currentTarget.value.trim())}
         />
       </div>
       <Button
         size='xs'
         loading={apiKeyLoading}
-        onClick={() => copyApiKey(true)}
+        onClick={() => getApiKey({ copy: true })}
         style={{ flexShrink: 0 }}
       >
         {t('Get-Key')}

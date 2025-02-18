@@ -4,6 +4,10 @@ import { Dispatch, SetStateAction, useEffect, useLayoutEffect, useState } from '
 import packageJson from '../../package.json';
 import * as CryptoJS from 'crypto-js';
 import clipboard from "tauri-plugin-clipboard-api";
+import { notifications } from '@mantine/notifications';
+import { NOTIFICATION } from '../constants/notification';
+import i18n from '../translations/i18n';
+
 export { localforage };
 
 export const VERSION = packageJson.version;
@@ -224,10 +228,43 @@ export function formatBytes(bytes: number, decimals = 2): string {
   bytes = Number(bytes);
   if (isNaN(bytes)) return '';
   if (bytes <= 0) return '0 Bytes';
-  
+
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
+
+/**
+ * @description 通知类型配置
+ */
+type NotificationType = 'success' | 'error' | 'warning' | 'info';
+
+/**
+ * @description 通知颜色映射
+ */
+const COLOR_MAP: Record<NotificationType, string> = {
+  success: 'green',
+  error: 'red',
+  warning: 'yellow',
+  info: 'blue'
+};
+
+/**
+ * @description 通知工具对象
+ */
+type MessageOrOptions = string | { title?: string, message?: string }
+export const notification = Object.fromEntries(
+  Object.entries(COLOR_MAP).map(([type, color]) => [
+    type,
+    (messageOrOptions: MessageOrOptions) => {
+      const { title, message } = typeof messageOrOptions === 'string' ? { title: undefined, message: messageOrOptions } : messageOrOptions;
+      notifications.show({
+        title: i18n.t(title || NOTIFICATION[type.toUpperCase() as keyof typeof NOTIFICATION]),
+        message: i18n.t(message),
+        color
+      })
+    }
+  ])
+) as unknown as Record<NotificationType, (messageOrOptions: MessageOrOptions) => void>;
