@@ -22,6 +22,7 @@ export default function Mantine({ children }: PropsWithChildren) {
 		fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI Variable Text, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji',
 		// added source-code-pro and SFMono-Regular
 		fontFamilyMonospace: 'source-code-pro, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace',
+		cursorType: 'pointer',
 		components: {
 			Checkbox: { styles: { input: { cursor: 'pointer' }, label: { cursor: 'pointer' } } },
 			TextInput: { styles: { label: { marginTop: '0.5rem' } } },

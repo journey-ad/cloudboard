@@ -21,6 +21,7 @@
 	"Connected": "Connected",
 	"Connection Error": "Connection Error",
 	"Disconnected": "Disconnected",
+	"Client ID": "Client ID",
 	"Error": "Error",
 	"Invalid API Endpoint": "Invalid API Endpoint",
 	"Failed to load configuration": "Failed to load configuration",

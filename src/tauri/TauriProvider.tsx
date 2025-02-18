@@ -151,6 +151,10 @@ export function TauriProvider({ children }: PropsWithChildren) {
 				});
 			}
 		}, []);
+	} else {
+		setTimeout(() => {
+			setLoading(false);
+		}, 0);
 	}
 
 	return <TauriContext.Provider value={{ loading, fileSep, downloads, documents, osType, appDocuments, isFullScreen, usingCustomTitleBar, scaleFactor }}>

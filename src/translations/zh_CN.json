@@ -21,6 +21,7 @@
 	"Connected": "已连接",
 	"Connection Error": "服务器连接失败",
 	"Disconnected": "已断开连接",
+	"Client ID": "客户端 ID",
 	"Error": "错误",
 	"Invalid API Endpoint": "API 接口地址无效",
 	"Failed to load configuration": "加载配置失败",
@@ -29,7 +30,7 @@
 	"End-to-End Encryption": "端到端加密",
 	"Input End-to-End Password": "输入端到端加密密码",
 	"Start at Login": "开机启动",
-	"It will start automatically when the system starts": "开启后将在系统开机时自动启动Cloudboard",
+	"It will start automatically when the system starts": "开启后将在系统启动时自动运行Cloudboard",
 	"Cloudboard v{{ v }}": "Cloudboard v{{ v }}",
 	"Github": "Github"
 }

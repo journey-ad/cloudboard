@@ -14,3 +14,11 @@ export const PASSWORD_CONSTANTS = {
   MIN_LENGTH: 6,
   MAX_LENGTH: 32
 } as const;
+
+// 状态配置映射
+export const SOCKET_CONFIG = {
+  CONNECTING: { text: 'Connecting', color: 'yellow' },
+  CONNECTED: { text: 'Connected', color: 'green' },
+  ERROR: { text: 'Connection Error', color: 'red' },
+  DISCONNECTED: { text: 'Disconnected', color: 'dimmed' }
+} as const;

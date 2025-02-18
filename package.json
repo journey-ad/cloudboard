@@ -18,7 +18,6 @@
     "@mantine/nprogress": "^7.15.1",
     "@mantine/spotlight": "^7.15.1",
     "@mantine/tiptap": "^7.15.1",
-    "@tabler/icons-react": "^3.30.0",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-autostart": "^2.2.0",
     "@tauri-apps/plugin-clipboard-manager": "~2",

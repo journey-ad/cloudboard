@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 
 interface WebSocketConfig {
-  url: string;
+  url?: string;
   reconnectAttempts?: number;
   reconnectInterval?: number;
 }
@@ -26,9 +26,9 @@ interface WebSocketReturn extends WebSocketState {
 const DEFAULT_RECONNECT_ATTEMPTS = 3;
 const DEFAULT_RECONNECT_INTERVAL = 3000;
 
-const useWebsocketConnection = (
+export const useWebsocket = (
   config: WebSocketConfig,
-  shouldConnect = true
+  shouldConnect = !!config.url
 ): WebSocketReturn => {
   const { url, reconnectAttempts = DEFAULT_RECONNECT_ATTEMPTS, reconnectInterval = DEFAULT_RECONNECT_INTERVAL } = config;
   const socketRef = useRef<Socket | null>(null);
@@ -126,5 +126,3 @@ const useWebsocketConnection = (
     disconnect: cleanup,
   };
 };
-
-export default useWebsocketConnection;

@@ -26,15 +26,17 @@ interface UseRequestReturn<TData> {
   /**
    * @description 执行请求
    */
-  run: (url: string, options?: RequestOptions) => Promise<TData | null>;
+  run: (urlOrOptions?: string | RequestOptions, options?: RequestOptions) => Promise<TData | null>;
 }
 
 /**
  * @description 请求hook
  * @template TData 返回数据类型
+ * @param url 请求URL
  * @param defaultOptions 默认配置
  */
 export function useRequest<TData = any>(
+  url?: string,
   defaultOptions: RequestOptions = {}
 ): UseRequestReturn<TData> {
   const [data, setData] = useState<TData | null>(null);
@@ -42,18 +44,27 @@ export function useRequest<TData = any>(
   const [error, setError] = useState<Error | null>(null);
 
   const run = useCallback(async (
-    url: string,
-    options: RequestOptions = {}
+    urlOrOptions?: string | RequestOptions,
+    options?: RequestOptions
   ): Promise<TData | null> => {
-    const finalOptions = {
-      ...defaultOptions,
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Cloudboard-Version': '0.1.0',
-        ...defaultOptions.headers,
-        ...options.headers,
-      }
+    // 处理参数
+    let finalUrl = '';
+    let finalOptions = { ...defaultOptions };
+
+    if (typeof urlOrOptions === 'string') {
+      finalUrl = urlOrOptions;
+      finalOptions = { ...finalOptions, ...options };
+    } else {
+      if (!url) throw new Error('URL is required');
+      finalUrl = url;
+      finalOptions = { ...finalOptions, ...urlOrOptions };
+    }
+
+    finalOptions.headers = {
+      'Content-Type': 'application/json',
+      'X-Cloudboard-Version': '0.1.0',
+      ...defaultOptions.headers,
+      ...finalOptions.headers,
     };
 
     const {
@@ -67,7 +78,7 @@ export function useRequest<TData = any>(
       setLoading(true);
       setError(null);
 
-      const response = await fetch(url, fetchOptions);
+      const response = await fetch(finalUrl, fetchOptions);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -101,7 +112,7 @@ export function useRequest<TData = any>(
     } finally {
       setLoading(false);
     }
-  }, [defaultOptions]);
+  }, [url, defaultOptions]);
 
   return {
     data,
