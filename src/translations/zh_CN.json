@@ -22,6 +22,8 @@
 	"Connection Error": "服务器连接失败",
 	"Disconnected": "已断开连接",
 	"Client ID": "客户端 ID",
+	"clipboard_size": "大小限制: {{ size }}",
+	"clipboard_ttl": "TTL: {{ ttl }}",
 	"Error": "错误",
 	"Invalid API Endpoint": "API 接口地址无效",
 	"Failed to load configuration": "加载配置失败",

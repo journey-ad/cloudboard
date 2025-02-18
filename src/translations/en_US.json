@@ -22,6 +22,8 @@
 	"Connection Error": "Connection Error",
 	"Disconnected": "Disconnected",
 	"Client ID": "Client ID",
+	"clipboard_size": "Size Limit: {{ size }}",
+	"clipboard_ttl": "TTL: {{ ttl }}",
 	"Error": "Error",
 	"Invalid API Endpoint": "Invalid API Endpoint",
 	"Failed to load configuration": "Failed to load configuration",

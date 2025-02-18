@@ -3,7 +3,7 @@ import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, S
 import { notifications } from '@mantine/notifications';
 import { TbFingerprint } from 'react-icons/tb';
 import { Trans, useTranslation } from 'react-i18next';
-import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData } from '../common/utils';
+import {notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes} from '../common/utils';
 import { createStorage } from '../tauri/storage';
 import { APP_NAME, RUNNING_IN_TAURI, useMinWidth, useTauriContext } from '../tauri/TauriProvider';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
@@ -66,60 +66,98 @@ export default function MainView() {
   }, [apiBaseUrlRef.current]);
   // 初始化
   useEffect(() => {
+    if (loading) return;
+    console.log('[MainView] useEffect', apiBaseUrlRef.current, apiBaseUrlConfig);
+
     if (apiBaseUrlRef.current !== apiBaseUrlConfig) {
       apiBaseUrlRef.current = apiBaseUrlConfig;
       setApiBaseUrlInputValue(apiBaseUrlConfig); // 同步到输入框
     }
-    getConfig();
-  }, [apiBaseUrlConfig]);
+  }, [loading, apiBaseUrlConfig]);
 
 
   // 定义 API 接口
-  const getApiEndpoint = useCallback(() => {
+  // const getApiEndpoint = useCallback(() => {
+  //   if (!apiBaseUrlRef.current) return null;
+
+  //   return {
+  //     keyGen: `${apiBaseUrlRef.current}/key-gen`,
+  //     config: `${apiBaseUrlRef.current}/config`,
+  //     sync: `${apiBaseUrlRef.current}/sync`,
+  //     wsUrl: new URL(apiBaseUrlRef.current).origin
+  //   }
+  // }, [apiBaseUrlRef.current]);
+
+  const apiEndpoint = useMemo(() => {
+    if (!apiBaseUrlRef.current) return null;
+
     return {
       keyGen: `${apiBaseUrlRef.current}/key-gen`,
       config: `${apiBaseUrlRef.current}/config`,
       sync: `${apiBaseUrlRef.current}/sync`,
       wsUrl: new URL(apiBaseUrlRef.current).origin
     }
-  }, []);
-
+  }, [apiBaseUrlRef.current]);
 
   /**
    * @description 获取API配置 包含大小限制和过期时间等数据
    */
   const [apiConfig, setApiConfig] = useState<ConfigResponse | null>(null);
-  const { data: apiConfigData } = useFetch<ConfigResponse>(getApiEndpoint().config);
-  const getConfig = useCallback(async () => {
-    if (apiConfigData) setApiConfig(apiConfigData);
-  }, [apiConfigData]);
+  const { refetch: getConfig } = useFetch<ConfigResponse>(apiEndpoint?.config, { autoInvoke: false });
+  useEffect(() => {
+    if (!apiBaseUrlRef.current || loading) return;
+    getConfig()
+      .then((res) => {
+        if (!res) return;
+        console.log(`[MainView] getConfig url=${apiEndpoint?.config} res=`, res);
+        setApiConfig(res);
+        copyApiKey(false);
+      })
+      .catch((err) => {
+        console.error(`[MainView] getConfig url=${apiEndpoint?.config} error:`, err);
+        notifications.show({
+          title: t('Error'),
+          message: t('Failed to get API config'),
+          color: 'red'
+        });
+      });
+  }, [getConfig, apiBaseUrlRef.current, loading]);
 
 
   /**
    * @description 获取并复制API密钥
    */
-  const { data: apiKeyData, loading: apiKeyLoading } = useFetch<ApiKeyResponse>(getApiEndpoint().keyGen);
-  const getApiKey = useCallback(async () => {
+  const { refetch: getApiKey, loading: apiKeyLoading } = useFetch<ApiKeyResponse>(apiEndpoint?.keyGen, { autoInvoke: false });
+  const copyApiKey = useCallback(async (notify = true) => {
     if (apiKeyLoading) return;
 
     // 如果API密钥为空，则获取API密钥
     if (!apiKeyRef.current) {
-      if (apiKeyData) {
-        // 写入配置
-        apiKeyRef.current = apiKeyData.key;
-        setApiKeyConfig(apiKeyData.key);
-      }
+      getApiKey()
+        .then((res) => {
+          console.log('[MainView] getApiKey res:', res);
+          if (res?.key) {
+            // 写入配置
+            apiKeyRef.current = res.key;
+            setApiKeyConfig(res.key);
+          }
+        })
+        .catch((err) => {
+          console.error('[MainView] getApiKey error:', err);
+        });
     }
 
-    // 写入剪贴板
-    await clipboard.writeText(apiKeyRef.current);
-    notifications.show({
-      title: t('Success'),
-      message: t('API Key has been copied to the clipboard'),
-      color: 'green'
-    });
+    if (notify) {
+      // 写入剪贴板
+      await clipboard.writeText(apiKeyRef.current);
+      notifications.show({
+        title: t('Success'),
+        message: t('API Key has been copied to the clipboard'),
+        color: 'green'
+      });
+    }
 
-    console.log('[MainView] getApiKey', apiKeyRef.current);
+    console.log('[MainView] copyApiKey', apiKeyRef.current);
   }, [apiKeyLoading, apiKeyRef.current, setApiKeyConfig]);
   useEffect(() => {
     apiKeyRef.current = apiKeyConfig;
@@ -190,7 +228,7 @@ export default function MainView() {
    * @description WebSocket连接处理
    */
   const { socket, socketRef, isConnecting, isConnected, error } = useWebsocket({
-    url: getApiEndpoint().wsUrl
+    url: apiEndpoint?.wsUrl
   });
   // 获取当前状态
   const socketState = useMemo(() => {
@@ -287,7 +325,7 @@ export default function MainView() {
   // 添加一个引用来存储最后处理的内容
   const lastContentRef = useRef<string>('');
   // 上传剪贴板内容
-  const { refetch: syncClipboard } = useFetch<SyncResponse>(getApiEndpoint().sync, { autoInvoke: false });
+  const { refetch: syncClipboard } = useFetch<SyncResponse>(apiEndpoint?.sync, { autoInvoke: false });
   const uploadClipboard = useCallback(async ({ type, content }: { type: string, content: string }) => {
     if (!socketRef.current?.id) return;
 
@@ -305,12 +343,21 @@ export default function MainView() {
       }
     })
       ?.then((res) => {
-        console.log('[clipboard] upload success:', res);
-        notifications.show({
-          title: t('Success'),
-          message: t('Clipboard data uploaded successfully'),
-          color: 'green'
-        });
+        console.log(apiEndpoint)
+        console.log('[clipboard] upload res:', res);
+        if (res?.code === 200) {
+          notifications.show({
+            title: t('Success'),
+            message: t('Clipboard data uploaded successfully'),
+            color: 'green'
+          });
+        } else {
+          notifications.show({
+            title: t('UploadError'),
+            message: `${res?.code}, ${res?.msg}`,
+            color: 'red'
+          });
+        }
       })
       ?.catch((err) => {
         console.error('[clipboard] upload error:', err);
@@ -318,7 +365,7 @@ export default function MainView() {
           title: t('Error'),
           message: t('Failed to upload clipboard data'),
           color: 'red'
-        }); 
+        });
       });
   }, [syncClipboard, apiKeyRef.current, socketRef.current?.id]);
   const handleClipboardData = useCallback(async (data: ClipboardData) => {
@@ -361,9 +408,8 @@ export default function MainView() {
       <Stack gap={'0'}>
         <Text size='xs'>{socketStateText}</Text>
         <Text size='xs'>{t('Client ID')}: {socketRef.current?.id || '-'}</Text>
-        <Text size='xs'>{t('API Key')}: {apiKeyRef.current || '-'}</Text>
-        <Text size='xs' hidden={!apiConfig}>{t('clipboard_size')}: {apiConfig?.clipboard_size || '-'}</Text>
-        <Text size='xs' hidden={!apiConfig}>{t('clipboard_ttl')}: {apiConfig?.clipboard_ttl || '-'}</Text>
+        <Text size='xs' hidden={!apiConfig}>{t('clipboard_size', { size: apiConfig?.clipboard_size ? formatBytes(apiConfig?.clipboard_size) : '-' })}</Text>
+        <Text size='xs' hidden={!apiConfig}>{t('clipboard_ttl', { ttl: apiConfig?.clipboard_ttl || '-' })}</Text>
       </Stack>
     );
 
@@ -376,7 +422,7 @@ export default function MainView() {
     );
   };
 
-  if (tauriLoading) {
+  if (tauriLoading || loading) {
     return <Center h={'100%'}><Loader size={'lg'} /></Center>;
   }
 
@@ -401,7 +447,7 @@ export default function MainView() {
       <Button
         size='xs'
         loading={apiKeyLoading}
-        onClick={getApiKey}
+        onClick={() => copyApiKey(true)}
         style={{ flexShrink: 0 }}
       >
         {t('Get-Key')}
