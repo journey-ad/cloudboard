@@ -2,9 +2,7 @@
  * @description API相关常量
  */
 export const API_CONSTANTS = {
-  VERSION: '0.1.0',
   DEFAULT_URL: 'https://clip.ovo.re/api/v1',
-  URL_REGEX: /^https?:\/\/.*$/
 } as const;
 
 /**

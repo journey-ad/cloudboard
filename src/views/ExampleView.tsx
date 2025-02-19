@@ -2,7 +2,7 @@
 import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Popover, Stack, Switch, Text, TextInput, Title, Tooltip } from '@mantine/core';
 import { TbFingerprint } from 'react-icons/tb';
 import { Trans, useTranslation } from 'react-i18next';
-import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification, formatSeconds } from '../common/utils';
+import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification, formatSeconds, VERSION } from '../common/utils';
 import { createStorage } from '../tauri/storage';
 import { APP_NAME, RUNNING_IN_TAURI, useMinWidth, useTauriContext } from '../tauri/TauriProvider';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
@@ -15,11 +15,11 @@ import { debounce } from 'lodash-es';
 
 export default function MainView() {
   const { t, i18n } = useTranslation();
-  const { fileSep, documents, loading: tauriLoading } = useTauriContext();
+  const { fileSep, home, loading: tauriLoading } = useTauriContext();
 
   // 存储相关初始化
-  const storeName = RUNNING_IN_TAURI ? join(fileSep, documents!, APP_NAME, 'config.dat') : 'config';
-  const { use: useKVP, loading, data } = createStorage(storeName);
+  const storeName = RUNNING_IN_TAURI ? join(fileSep, home!, '.cloudboard') : 'config';
+  const { use: useKVP, loading, data } = createStorage(home ? storeName : null);
 
   const [apiBaseUrlConfig, setApiBaseUrlConfig] = useKVP('apiBaseUrl', API_CONSTANTS.DEFAULT_URL);
   const [apiKeyConfig, setApiKeyConfig] = useKVP('apiKey', '');
@@ -68,7 +68,7 @@ export default function MainView() {
   // 初始化
   useEffect(() => {
     if (loading) return;
-    console.log('[MainView] useEffect', apiBaseUrlRef.current, apiBaseUrlConfig);
+    console.log('[MainView] initialize apiBaseUrl:', apiBaseUrlRef.current);
 
     if (apiBaseUrlRef.current !== apiBaseUrlConfig) {
       apiBaseUrlRef.current = apiBaseUrlConfig;
@@ -100,13 +100,15 @@ export default function MainView() {
   // config接口变化时重置错误状态
   useEffect(() => {
     hasError.current = false;
-  }, [apiEndpoint?.config]);
+  }, [apiEndpoint.config]);
   // 获取API配置
-  const { data: apiConfig, error: apiConfigError, isLoading: apiConfigLoading, mutate: fetchConfig } = useFetchSWR(apiEndpoint?.config);
+  const { data: apiConfig, error: apiConfigError, isLoading: apiConfigLoading, mutate: fetchConfig } = useFetchSWR(apiEndpoint.config);
+  // 手动获取API配置
   const getConfig = useCallback(({ notify = false }: { notify?: boolean } = {}) => {
     needNotify.current = notify;
     fetchConfig()
   }, [fetchConfig]);
+
   useEffect(() => {
     if (apiConfigLoading) {
       // 设置连接状态
@@ -126,12 +128,15 @@ export default function MainView() {
       // 设置连接状态
       setConnectionState(SOCKET_STATE.ERROR);
 
+      socketRef.current?.disconnect();
+
       return;
     }
 
     // 成功取到数据后
     // 设置连接状态
     setConnectionState(SOCKET_STATE.CONNECTED);
+    socketRef.current?.connect();
     // 重置错误状态
     hasError.current = false;
     // 获取API密钥
@@ -150,15 +155,15 @@ export default function MainView() {
     const res = await fetch(url, arg)
     return res.json()
   }, [])
-  const { trigger: fetchApiKey, isMutating: apiKeyLoading } = useFetchSWRMutation(apiEndpoint?.keyGen, fetcher)
+  const { trigger: fetchApiKey, isMutating: apiKeyLoading } = useFetchSWRMutation(apiEndpoint.keyGen, fetcher)
   const getApiKey = useCallback(async ({ copy = true }: { copy?: boolean } = {}) => {
-    if (apiKeyLoading) return;
+    if (loading || apiKeyLoading) return;
 
     // 如果API密钥为空，则获取API密钥
     if (!apiKeyRef.current) {
       fetchApiKey({})
         .then((res) => {
-          console.log('[MainView] fetch res:', res);
+          console.log('[MainView] fetchApiKey res:', res);
           if (res?.key) {
             // 写入配置
             apiKeyRef.current = res.key;
@@ -166,7 +171,7 @@ export default function MainView() {
           }
         })
         .catch((err) => {
-          console.error('[MainView] fetch error:', err);
+          console.error('[MainView] fetchApiKey error:', err);
         });
     }
 
@@ -233,7 +238,7 @@ export default function MainView() {
           setStartAtLogin(await Autostart.isEnabled());
         }
       } catch (error) {
-        console.error('设置开机启动失败:', error);
+        console.error('[MainView] setStartAtLogin error:', error);
         setStartAtLogin(false);
       }
     })();
@@ -244,7 +249,7 @@ export default function MainView() {
    * @description WebSocket连接处理
    */
   const { socket, socketRef, isConnecting, isConnected, error } = useWebsocket({
-    url: apiEndpoint?.wsUrl
+    url: apiEndpoint.wsUrl
   });
   useEffect(() => {
     if (isConnecting) setConnectionState(SOCKET_STATE.CONNECTING);
@@ -264,13 +269,13 @@ export default function MainView() {
   // 监听云端剪贴板变化
   useEffect(() => {
     if (isConnected) {
-      console.log('socket connected');
+      console.log('[websocket] socket connected');
 
       socket?.emit('auth', apiKeyRef.current);
       socket?.on('clipboard:sync', async (data) => {
         if (data.sourceId === socket.id) return
 
-        console.log('[clipboard] recv ===============>', data);
+        console.log('[websocket] recv ===============>', data);
 
         const clipboardData: ClipboardData = {
           type: data.type,
@@ -344,7 +349,7 @@ export default function MainView() {
   // 添加一个引用来存储最后处理的内容
   const lastContentRef = useRef<string>('');
   // 上传剪贴板内容
-  const { trigger: syncClipboard, isMutating: syncClipboardLoading } = useFetchSWRMutation(apiEndpoint?.sync, fetcher)
+  const { trigger: syncClipboard, isMutating: syncClipboardLoading } = useFetchSWRMutation(apiEndpoint.sync, fetcher)
   const uploadClipboard = useCallback(async ({ type, content }: { type: string, content: string }) => {
     if (!socketRef.current?.id) return;
     if (syncClipboardLoading) return;
@@ -356,20 +361,21 @@ export default function MainView() {
         type,
         content,
         key: apiKeyRef.current,
-        clientId: socketRef.current?.id
+        clientId: socketRef?.current?.id
       }),
       headers: {
         'Content-Type': 'application/json'
       }
     })
       .then((res) => {
-        console.log('[clipboard] upload res:', res);
         if (res?.code === 200) {
+          console.log('[clipboard] upload success:', res);
           notification.success({
             title: "Upload successfully",
             message: NOTIFICATION.CLIPBOARD_UPLOAD_SUCCESS
           });
         } else {
+          console.warn('[clipboard] upload failed:', res);
           notification.error({
             title: "Upload failed",
             message: `${res?.code}, ${res?.msg}`
@@ -383,7 +389,7 @@ export default function MainView() {
           message: NOTIFICATION.CLIPBOARD_UPLOAD_FAILED
         });
       });
-  }, [syncClipboard, apiEndpoint, apiKeyRef.current, socketRef.current?.id]);
+  }, [syncClipboard, apiEndpoint, apiKeyRef.current, socketRef?.current?.id]);
   const handleClipboardData = useCallback(async (data: ClipboardData) => {
     const { type, content, source, plaintext } = data;
     // 处理内容
@@ -516,7 +522,7 @@ export default function MainView() {
     </Group>
 
     <Group style={{ marginTop: 'auto', marginBottom: '-.3rem' }} justify="center" wrap="nowrap" gap="xs">
-      <Text size="xs" c="dimmed">Cloudboard v{t('0.1')}</Text>
+      <Text size="xs" c="dimmed">Cloudboard v{VERSION}</Text>
       <Text size="xs" c="dimmed">
         <Anchor c="dimmed" href='https://github.com/journey-ad/cloudboard' target='_blank' >{t('Github')}</Anchor>
       </Text>

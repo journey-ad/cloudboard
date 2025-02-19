@@ -40,6 +40,7 @@ const EXTS = new Set(['.json']);
 
 interface SystemProvideContext {
 	loading: boolean,
+	home?: string,
 	downloads?: string,
 	documents?: string,
 	appDocuments?: string,
@@ -52,6 +53,7 @@ interface SystemProvideContext {
 
 const TauriContext = React.createContext<SystemProvideContext>({
 	loading: true,
+	home: undefined,
 	downloads: undefined,
 	documents: undefined,
 	appDocuments: undefined,
@@ -69,6 +71,7 @@ var root: HTMLElement;
 export function TauriProvider({ children }: PropsWithChildren) {
 
 	const [loading, setLoading] = useState(true);
+	const [home, setHome] = useState<string>();
 	const [downloads, setDownloadDir] = useState<string>();
 	const [documents, setDocumentDir] = useState<string>();
 	const [osType, setOsType] = useState<os.OsType>();
@@ -117,6 +120,7 @@ export function TauriProvider({ children }: PropsWithChildren) {
 		useEffect(() => {
 			// if you want to listen for event listeners, use mountID trick to call unlisten on old listeners
 			const callTauriAPIs = async () => {
+				setHome(await tauriPath.homeDir());
 				setDownloadDir(await tauriPath.downloadDir());
 				const _documents = await tauriPath.documentDir();
 				setDocumentDir(_documents);
@@ -157,7 +161,7 @@ export function TauriProvider({ children }: PropsWithChildren) {
 		}, 0);
 	}
 
-	return <TauriContext.Provider value={{ loading, fileSep, downloads, documents, osType, appDocuments, isFullScreen, usingCustomTitleBar, scaleFactor }}>
+	return <TauriContext.Provider value={{ loading, fileSep, home, downloads, documents, osType, appDocuments, isFullScreen, usingCustomTitleBar, scaleFactor }}>
 		{children}
 	</TauriContext.Provider>;
 }

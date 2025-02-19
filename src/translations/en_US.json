@@ -22,7 +22,7 @@
 	"Connection Error": "Connection Error",
 	"Disconnected": "Disconnected",
 	"Client ID": "Client ID",
-	"clipboard_type": "Type limit: {{ type }}",
+	"clipboard_type": "Type: {{ type }}",
 	"clipboard_size": "Size limit: {{ size }}",
 	"clipboard_ttl": "TTL: {{ ttl }}",
 	"Error": "Error",

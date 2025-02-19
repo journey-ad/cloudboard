@@ -1,4 +1,5 @@
 // API for Tauri or web storage
+import { exists } from '@tauri-apps/plugin-fs';
 import { Store } from '@tauri-apps/plugin-store';
 import localforage from 'localforage';
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react';
@@ -21,9 +22,9 @@ export function createStorage(storePath: string | null) {
 	const fileStoreRef = useRef<Store | null>(null);
 	const timeoutRef = useRef<number>(undefined);
 
-	useEffect(() => {
-		if (data) setLoading(false);
-	}, [data]);
+	// useEffect(() => {
+	// 	if (data) setLoading(false);
+	// }, [data]);
 
 	// load data
 	useEffect(() => {
@@ -31,20 +32,28 @@ export function createStorage(storePath: string | null) {
 		if (RUNNING_IN_TAURI) {
 			(async () => {
 				try {
+					console.log('[storage] start load configuration file:', storePath);
 					const store = await Store.load(storePath);
 					if (store === null) throw new Error(`invalid path ${storePath} for store`);
 					fileStoreRef.current = store;
-					const value = await fileStoreRef.current.get<Record<string, any>>('data');
-					if (value === undefined) {
+
+					// 先检查文件是否存在及其内容
+					const isExists = await exists(storePath);
+					
+					if (!isExists) {
 						const newObj = {};
-						await fileStoreRef.current!.set('data', newObj);
 						setData(newObj);
+						console.log('[storage] initialize new configuration file');
 					} else {
-						console.log(`value is undefined? ${JSON.stringify(value)}`);
-						setData(value);
+						const value = await store.entries();
+						const dataObj = Object.fromEntries(value);
+						setData(dataObj);
+						console.log('[storage] configuration file loaded:', dataObj);
 					}
+					setLoading(false);
 				} catch (e) {
-					console.error(e);
+					console.error('[storage] load configuration file error:', e);
+					setLoading(false);
 				}
 			})();
 		} else {
@@ -56,9 +65,11 @@ export function createStorage(storePath: string | null) {
 							return alert('cannot store data, application will not work as intended');
 						}
 						setData(val);
+						setLoading(false);
 					});
 				} else {
 					setData(value as any);
+					setLoading(false);
 				}
 			});
 		}
@@ -77,7 +88,7 @@ export function createStorage(storePath: string | null) {
 			data[key] = value;
 			if (value !== prev) {
 				if (RUNNING_IN_TAURI) {
-					fileStoreRef.current!.set('data', data);
+					fileStoreRef.current!.set(key, value);
 				} else {
 					timeoutRef.current = window.setTimeout(() => localforage.setItem(storePath, data), SAVE_DELAY);
 				}
@@ -86,12 +97,14 @@ export function createStorage(storePath: string | null) {
 	}, [storePath, loading, fileStoreRef, localDataRef, timeoutRef]);
 
 	const getItem = useCallback((key: string, defaultValue: object) => {
-		if (loading || data === undefined) return defaultValue;
+		if (loading) return undefined;
+		if (data === undefined) return defaultValue;
 		const value = data[key];
 		if (value === undefined && defaultValue !== undefined) {
 			setData(data => {
 				if (data !== undefined) data[key] = defaultValue;
 			});
+			fileStoreRef.current!.set(key, defaultValue);
 			return defaultValue;
 		}
 		return value;

@@ -22,7 +22,7 @@
 	"Connection Error": "服务器连接失败",
 	"Disconnected": "已断开连接",
 	"Client ID": "客户端 ID",
-	"clipboard_type": "类型限制: {{ type }}",
+	"clipboard_type": "类型: {{ type }}",
 	"clipboard_size": "大小限制: {{ size }}",
 	"clipboard_ttl": "TTL: {{ ttl }}",
 	"Error": "错误",
