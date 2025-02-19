@@ -1,8 +1,8 @@
 // component example
-import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Stack, Switch, Text, TextInput, Title, Tooltip } from '@mantine/core';
+import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Popover, Stack, Switch, Text, TextInput, Title, Tooltip } from '@mantine/core';
 import { TbFingerprint } from 'react-icons/tb';
 import { Trans, useTranslation } from 'react-i18next';
-import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification } from '../common/utils';
+import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification, formatSeconds } from '../common/utils';
 import { createStorage } from '../tauri/storage';
 import { APP_NAME, RUNNING_IN_TAURI, useMinWidth, useTauriContext } from '../tauri/TauriProvider';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
@@ -423,9 +423,16 @@ export default function MainView() {
     const Tip: React.FC = () => (
       <Stack gap={'0'}>
         <Text size='xs'>{socketStateText}</Text>
-        <Text size='xs'>{t('Client ID')}: {socketRef.current?.id || '-'}</Text>
-        <Text size='xs' hidden={!apiConfig}>{t('clipboard_size', { size: apiConfig?.clipboard_size ? formatBytes(apiConfig?.clipboard_size) : '-' })}</Text>
-        <Text size='xs' hidden={!apiConfig}>{t('clipboard_ttl', { ttl: apiConfig?.clipboard_ttl || '-' })}</Text>
+        {
+          apiConfig && (
+            <>
+              <Text size='xs'>{t('Client ID')}: {socketRef.current?.id || '-'}</Text>
+              <Text size='xs'>{t('clipboard_type', { type: apiConfig?.clipboard_type || '-' })}</Text>
+              <Text size='xs'>{t('clipboard_size', { size: apiConfig?.clipboard_size ? formatBytes(apiConfig?.clipboard_size) : '-' })}</Text>
+              <Text size='xs'>{t('clipboard_ttl', { ttl: apiConfig?.clipboard_ttl || '-' })}</Text>
+            </>
+          )
+        }
       </Stack>
     );
 
@@ -479,7 +486,12 @@ export default function MainView() {
     <Group justify="space-between" wrap="nowrap">
       <div style={{ width: '100%' }}>
         <PasswordInput
-          leftSection={<TbFingerprint size={20} strokeWidth={1.5} />}
+          leftSection={
+            <Tooltip label={<Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{t('END_TO_END_SECURITY_TIP')}</Text>} arrowSize={10} withArrow position="top-start" w={'min(300px, max-content)'} multiline>
+              <TbFingerprint size={20} strokeWidth={1.5} style={{ cursor: 'pointer' }} />
+            </Tooltip>
+          }
+          leftSectionPointerEvents='all'
           placeholder={t('Input End-to-End Password')}
           value={password}
           minLength={PASSWORD_CONSTANTS.MIN_LENGTH}
@@ -497,7 +509,7 @@ export default function MainView() {
       <div>
         <Text size="sm">{t('Start at Login')}</Text>
         <Text size="xs" c="dimmed">
-          {t('It will start automatically when the system starts')}
+          {t('It will launch cloudboard automatically when the system starts')}
         </Text>
       </div>
       <Switch onLabel={t('ON')} offLabel={t('OFF')} size="md" checked={startAtLogin} onChange={e => setStartAtLogin(e.currentTarget.checked)} />

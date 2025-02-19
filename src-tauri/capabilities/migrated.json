@@ -12,11 +12,7 @@
     "fs:allow-mkdir",
     {
       "identifier": "fs:scope",
-      "allow": [
-        "$APP/*",
-        "$DOCUMENT/*",
-        "$DOWNLOAD/*"
-      ]
+      "allow": [ "**" ]
     },
     "core:window:allow-maximize",
     "core:window:allow-unmaximize",

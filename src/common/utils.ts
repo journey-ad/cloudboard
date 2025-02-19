@@ -7,6 +7,7 @@ import clipboard from "tauri-plugin-clipboard-api";
 import { notifications } from '@mantine/notifications';
 import { NOTIFICATION } from '../constants/notification';
 import i18n from '../translations/i18n';
+import { exists, readFile } from '@tauri-apps/plugin-fs';
 
 export { localforage };
 
@@ -134,6 +135,20 @@ export function decryptContent(content: string, password: string): string {
 };
 
 /**
+ * @description 读取文件内容
+ */
+export async function readFileBase64(filePath: string): Promise<string | null> {
+  if (!(await exists(filePath))) return null;
+
+  const fileContent = await readFile(filePath);
+  if (!fileContent) return null;
+
+  const uint8Array = new Uint8Array(fileContent);
+  const binaryString = uint8Array.reduce((str, byte) => str + String.fromCharCode(byte), '');
+  return btoa(binaryString);
+}
+
+/**
  * @description 读取剪贴板内容
  */
 export async function readClipboardData(): Promise<ClipboardData | null> {
@@ -148,11 +163,20 @@ export async function readClipboardData(): Promise<ClipboardData | null> {
 
   // 按优先级读取不同类型的内容
   const readers = {
-    files: async () => ({
-      type: 'files',
-      content: await clipboard.readFiles(),
-      source: 'local'
-    }) as ClipboardData,
+    files: async () => {
+      const REGEX_IMAGE = /\.png|\.jpg|\.jpeg|\.gif|\.bmp|\.webp$/i;
+      const filePath = (await clipboard.readFiles())[0];
+      if (!filePath || !REGEX_IMAGE.test(filePath)) return null;
+
+      const fileContent = await readFileBase64(filePath);
+      if (!fileContent) return null;
+
+      return {
+        type: 'image',
+        content: fileContent,
+        source: 'local'
+      } as ClipboardData;
+    },
     image: async () => ({
       type: 'image',
       content: await clipboard.readImageBase64(),
@@ -192,7 +216,7 @@ export async function readClipboardData(): Promise<ClipboardData | null> {
  * @param content 主要内容
  * @param plaintext 纯文本内容（用于html类型的降级显示）
  */
-export async function writeToClipboard(type: ClipboardDataType | 'files', content: string, plaintext?: string) {
+export async function writeToClipboard(type: ClipboardDataType, content: string, plaintext?: string) {
   const writers = {
     files: () => { console.warn('[clipboard] not supported files', content); },
     text: () => clipboard.writeText(content),
@@ -237,6 +261,23 @@ export function formatBytes(bytes: number, decimals = 2): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
+
+/**
+ * @description 格式化秒数为时分秒
+ * @param seconds 秒数
+ * @returns 格式化后的时分秒
+ */
+export const formatSeconds = (seconds: number): string => {
+  if (isNaN(seconds)) return '';
+  
+  return [
+    Math.floor(seconds / 3600),
+    Math.floor((seconds % 3600) / 60),
+    seconds % 60
+  ].map((unit, i) => unit + ('hms'[i] || ''))
+    .filter(unit => unit[0] !== '0')
+    .join(' ');
+};
 
 /**
  * @description 通知类型配置
