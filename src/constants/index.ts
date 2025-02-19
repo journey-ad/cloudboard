@@ -1,3 +1,7 @@
+import { version } from '../../package.json';
+
+export const VERSION = version.replace(/\.0+$/, '');
+
 /**
  * @description API相关常量
  */

@@ -21,6 +21,7 @@ mod utils;
 
 use tray_icon::{create_tray_icon, tray_update_lang, TrayState};
 // use utils::long_running_thread;
+use utils::{get_mime_type};
 
 #[derive(Clone, Serialize)]
 struct SingleInstancePayload {
@@ -72,7 +73,7 @@ pub fn run() {
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_fs::init())
     // custom commands
-    .invoke_handler(tauri::generate_handler![tray_update_lang, process_file,])
+    .invoke_handler(tauri::generate_handler![tray_update_lang, process_file, get_mime_type])
     // allow only one instance and propagate args and cwd to existing instance
     .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
       app

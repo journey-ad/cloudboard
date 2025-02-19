@@ -33,7 +33,7 @@
 	"API Key has been copied to the clipboard": "API Key 已复制到剪贴板，请前往添加快捷指令",
 	"End-to-End Encryption": "端到端加密",
 	"Input End-to-End Password": "输入端到端加密密码",
-	"END_TO_END_SECURITY_TIP": "数据将在发送到服务器之前加密，并在客户端收到数据时解密\n端到端密码保存在本地，确保所有客户端的密码保持一致",
+	"END_TO_END_SECURITY_TIP": "数据将在发送到服务器之前加密，并在客户端收到数据时解密\n端到端密码保存在本地，请确保所有客户端的密码保持一致",
 	"Start at Login": "开机启动",
 	"It will launch cloudboard automatically when the system starts": "开启后将在系统启动时自动运行Cloudboard",
 	"Upload successfully": "上传成功",

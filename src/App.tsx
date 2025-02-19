@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import classes from './App.module.css';
 import { useCookie, useLocalForage } from './common/utils';
 import { RUNNING_IN_TAURI, useTauriContext } from './tauri/TauriProvider';
-import ExampleView from './views/ExampleView';
+import MainView from './views/MainView';
 import FallbackAppRender from './views/FallbackErrorBoundary';
 
 // imported views need to be added to the `views` list variable
@@ -137,7 +137,7 @@ export default function () {
     <AppShell padding='sm' className={classes.appShell} h={'100dvh'}>
       <AppShell.Main h={'100%'}>
         <ErrorBoundary FallbackComponent={FallbackAppRender} /*onReset={_details => resetState()} */ onError={e => tauriLogger.error(e.message)}>
-          <ExampleView />
+          <MainView />
         </ErrorBoundary>
       </AppShell.Main>
     </AppShell>
