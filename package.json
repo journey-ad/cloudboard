@@ -44,6 +44,7 @@
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.13",
     "embla-carousel-react": "^8.5.1",
+    "file-type": "^20.1.0",
     "i18next": "^24.1.2",
     "i18next-browser-languagedetector": "^8.0.2",
     "js-cookie": "^3.0.5",
@@ -62,7 +63,8 @@
     "swr": "^2.3.2",
     "tauri-plugin-clipboard-api": "^2.1.11",
     "typescript": "^5.7.2",
-    "use-mutative": "^1.2.0"
+    "use-mutative": "^1.2.0",
+    "uuid": "^11.1.0"
   },
   "scripts": {
     "dev": "tauri dev",

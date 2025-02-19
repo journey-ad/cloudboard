@@ -90,7 +90,7 @@ export function createStorage(storePath: string | null) {
 				if (RUNNING_IN_TAURI) {
 					fileStoreRef.current!.set(key, value);
 				} else {
-					timeoutRef.current = window.setTimeout(() => localforage.setItem(storePath, data), SAVE_DELAY);
+					timeoutRef.current = window.setTimeout(() => localforage.setItem(storePath!, data), SAVE_DELAY);
 				}
 			}
 		});

@@ -7,7 +7,7 @@ type ClipboardSource = 'local' | 'remote';
  * @description 剪贴板数据类型
  */
 type ClipboardData = {
-  type: Exclude<ClipboardDataType, 'files'>;
+  type: ClipboardDataType;
   content: string;
   source: ClipboardSource;
   plaintext?: string;

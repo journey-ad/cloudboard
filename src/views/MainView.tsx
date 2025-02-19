@@ -2,13 +2,13 @@
 import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Popover, Stack, Switch, Text, TextInput, Title, Tooltip } from '@mantine/core';
 import { TbFingerprint } from 'react-icons/tb';
 import { Trans, useTranslation } from 'react-i18next';
-import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification, formatSeconds, VERSION } from '../common/utils';
+import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification, formatSeconds } from '../common/utils';
 import { createStorage } from '../tauri/storage';
 import { APP_NAME, RUNNING_IN_TAURI, useMinWidth, useTauriContext } from '../tauri/TauriProvider';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import * as Autostart from '@tauri-apps/plugin-autostart';
 import clipboard from "tauri-plugin-clipboard-api";
-import { API_CONSTANTS, NOTIFICATION, PASSWORD_CONSTANTS, SOCKET_STATE, SOCKET_CONFIG } from '../constants';
+import { VERSION, API_CONSTANTS, NOTIFICATION, PASSWORD_CONSTANTS, SOCKET_STATE, SOCKET_CONFIG } from '../constants';
 import { useFetchSWR, useFetchSWRMutation, useWebsocket } from '../hooks';
 import { debounce } from 'lodash-es';
 
@@ -103,6 +103,7 @@ export default function MainView() {
   }, [apiEndpoint.config]);
   // 获取API配置
   const { data: apiConfig, error: apiConfigError, isLoading: apiConfigLoading, mutate: fetchConfig } = useFetchSWR(apiEndpoint.config);
+  const apiConfigRef = useRef(apiConfig);
   // 手动获取API配置
   const getConfig = useCallback(({ notify = false }: { notify?: boolean } = {}) => {
     needNotify.current = notify;
@@ -139,6 +140,8 @@ export default function MainView() {
     socketRef.current?.connect();
     // 重置错误状态
     hasError.current = false;
+    // 更新apiConfigRef
+    apiConfigRef.current = apiConfig;
     // 获取API密钥
     getApiKey({ copy: false });
 
@@ -317,12 +320,14 @@ export default function MainView() {
               return;
             }
             const clipboardData = await readClipboardData();
+            if (!clipboardData) {
+              console.warn('[clipboard] no clipboard data');
+              return;
+            }
 
             console.log('[clipboard] clipboardData:', clipboardData);
 
-            if (clipboardData) {
-              await handleClipboardData(clipboardData);
-            }
+            await handleClipboardData(clipboardData);
           }, 2000,
           { leading: false, trailing: true }
         );
@@ -342,7 +347,6 @@ export default function MainView() {
     }
   }, []);
 
-
   /**
    * @description 处理剪贴板数据
    */
@@ -355,6 +359,12 @@ export default function MainView() {
     if (syncClipboardLoading) return;
 
     console.log('[clipboard] uploadClipboard:', { type, content });
+
+    if (!apiConfigRef.current?.clipboard_type.includes(type)) {
+      console.warn('[clipboard] the server does not support this type:', type);
+      return;
+    }
+
     syncClipboard({
       method: 'POST',
       body: JSON.stringify({
@@ -394,26 +404,31 @@ export default function MainView() {
     const { type, content, source, plaintext } = data;
     // 处理内容
     let processedContent = content;
-    // 如果内容是远程来源，并且启用了端到端加密，则解密内容
-    if (source === 'remote' && enableEncryptionRef.current) {
-      processedContent = decryptContent(content, encryptionPasswordRef.current);
-      console.log('[clipboard] decrypt content:', processedContent);
+
+    // 远程来源
+    if (source === 'remote') {
+      // 如果内容是远程来源，并且启用了端到端加密，则解密内容
+      if (enableEncryptionRef.current) {
+        processedContent = decryptContent(content, encryptionPasswordRef.current);
+        console.log('[clipboard] decrypt content:', processedContent);
+      }
+      // 跳过重复内容
+      if (processedContent === lastContentRef.current) {
+        console.log('[clipboard] skip duplicate content');
+        return;
+      }
+      lastContentRef.current = processedContent;
+      // 写入剪贴板
+      try {
+        // 在写入剪贴板前设置标记，表示这是程序写入的数据
+        isProgramWriteRef.current = true;
+        await writeToClipboard(type, processedContent, plaintext);
+      } catch (error) {
+        console.error('[clipboard] failed to write clipboard:', error);
+        return;
+      }
     }
-    // 跳过重复内容
-    if (processedContent === lastContentRef.current) {
-      console.log('[clipboard] skip duplicate content');
-      return;
-    }
-    lastContentRef.current = processedContent;
-    // 写入剪贴板
-    try {
-      // 在写入剪贴板前设置标记，表示这是程序写入的数据
-      isProgramWriteRef.current = true;
-      await writeToClipboard(type, processedContent, plaintext);
-    } catch (error) {
-      console.error('[clipboard] failed to write clipboard:', error);
-      return;
-    }
+
     // 同步到云端
     if (source === 'local') {
       const content = enableEncryptionRef.current

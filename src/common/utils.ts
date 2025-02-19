@@ -7,8 +7,9 @@ import clipboard from "tauri-plugin-clipboard-api";
 import { notifications } from '@mantine/notifications';
 import { NOTIFICATION } from '../constants/notification';
 import i18n from '../translations/i18n';
-import { exists, readFile } from '@tauri-apps/plugin-fs';
-
+import { exists, readFile, rename, writeFile } from '@tauri-apps/plugin-fs';
+import * as tauriPath from '@tauri-apps/api/path';
+import { invoke } from '@tauri-apps/api/core';
 export { localforage };
 
 export const VERSION = packageJson.version;
@@ -136,6 +137,8 @@ export function decryptContent(content: string, password: string): string {
 
 /**
  * @description 读取文件内容
+ * @param filePath 文件路径
+ * @returns 文件内容
  */
 export async function readFileBase64(filePath: string): Promise<string | null> {
   if (!(await exists(filePath))) return null;
@@ -146,6 +149,48 @@ export async function readFileBase64(filePath: string): Promise<string | null> {
   const uint8Array = new Uint8Array(fileContent);
   const binaryString = uint8Array.reduce((str, byte) => str + String.fromCharCode(byte), '');
   return btoa(binaryString);
+}
+
+/**
+ * @description 将base64写入到文件
+ * @param base64 base64字符串
+ * @param filePath 文件路径
+ */
+export async function writeFileBase64(base64: string, filePath: string) {
+  const uint8Array = new Uint8Array(atob(base64).split('').map(char => char.charCodeAt(0)));
+  await writeFile(filePath, uint8Array);
+}
+
+/**
+ * @description 获取文件的mime类型
+ * @param filePath 文件路径
+ * @returns mime类型
+ */
+export async function getMimeType(filePath: string) {
+  try {
+    const [mimeType, extension] = await invoke('get_mime_type', { path: filePath }) as [string, string];
+    return { mimeType, extension };
+  } catch (error) {
+    console.error('failed to get mime type', error);
+    return { mimeType: 'application/octet-stream', extension: 'bin' };
+  }
+}
+
+/**
+ * @description 获取内容的hash值
+ * @param content 内容
+ * @param algorithm 算法
+ * @returns hash值
+ */
+export function getContentHash(content: string, algorithm = 'SHA256') {
+  const algorithms = {
+    SHA256: CryptoJS.SHA256,
+    SHA1: CryptoJS.SHA1,
+    MD5: CryptoJS.MD5,
+  } as const;
+  if (!(algorithm in algorithms)) throw new Error(`Unsupported algorithm: ${algorithm}`);
+
+  return algorithms[algorithm as keyof typeof algorithms](content)
 }
 
 /**
@@ -166,10 +211,16 @@ export async function readClipboardData(): Promise<ClipboardData | null> {
     files: async () => {
       const REGEX_IMAGE = /\.png|\.jpg|\.jpeg|\.gif|\.bmp|\.webp$/i;
       const filePath = (await clipboard.readFiles())[0];
-      if (!filePath || !REGEX_IMAGE.test(filePath)) return null;
+      if (!filePath || !REGEX_IMAGE.test(filePath)) {
+        console.warn('[clipboard] not support non-image files');
+        return null;
+      }
 
       const fileContent = await readFileBase64(filePath);
-      if (!fileContent) return null;
+      if (!fileContent) {
+        console.warn('[clipboard] failed to read image file');
+        return null;
+      }
 
       return {
         type: 'image',
@@ -217,10 +268,28 @@ export async function readClipboardData(): Promise<ClipboardData | null> {
  * @param plaintext 纯文本内容（用于html类型的降级显示）
  */
 export async function writeToClipboard(type: ClipboardDataType, content: string, plaintext?: string) {
+  const tmpDir = await tauriPath.tempDir();
   const writers = {
     files: () => { console.warn('[clipboard] not supported files', content); },
     text: () => clipboard.writeText(content),
-    image: () => clipboard.writeImageBase64(content),
+    image: async () => {
+      try {
+        // 根据mime类型写入文件
+        const hash = getContentHash(content, 'SHA256');
+        const filePath = await tauriPath.join(tmpDir, `${hash}.tmp`);
+        await writeFileBase64(content, filePath);
+
+        const { extension, mimeType } = await getMimeType(filePath);
+        const newFilePath = await tauriPath.join(tmpDir, `${hash}.${extension}`);
+        await rename(filePath, newFilePath);
+
+        clipboard.writeFiles([newFilePath]);
+        console.log(`[clipboard] write image to temp file: ${newFilePath} ${mimeType}`);
+      } catch (error) {
+        console.error('[clipboard] failed to write image:', error);
+        throw error;
+      }
+    },
     html: () => {
       plaintext = plaintext || htmlToText(content)
       return clipboard.writeHtmlAndText(content, plaintext)
@@ -269,7 +338,7 @@ export function formatBytes(bytes: number, decimals = 2): string {
  */
 export const formatSeconds = (seconds: number): string => {
   if (isNaN(seconds)) return '';
-  
+
   return [
     Math.floor(seconds / 3600),
     Math.floor((seconds % 3600) / 60),
