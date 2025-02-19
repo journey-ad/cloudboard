@@ -6,17 +6,21 @@ type ClipboardSource = 'local' | 'remote';
 /**
  * @description 剪贴板数据类型
  */
-interface ClipboardData {
-  type: ClipboardDataType;
+type ClipboardData = {
+  type: 'files';
+  content: string[];
+  source: 'local';
+} | {
+  type: Exclude<ClipboardDataType, 'files'>;
   content: string;
-  plaintext?: string | undefined;
-  source: ClipboardSource;
+  source: 'local';
+  plaintext?: string;
 }
 
 /**
  * @description 剪贴板内容类型
  */
-type ClipboardDataType = 'text' | 'image' | 'html' | 'rtf';
+type ClipboardDataType = 'text' | 'image' | 'html' | 'rtf' | 'files';
 
 interface ApiKeyResponse {
   key: string;

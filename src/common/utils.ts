@@ -148,10 +148,11 @@ export async function readClipboardData(): Promise<ClipboardData | null> {
 
   // 按优先级读取不同类型的内容
   const readers = {
-    files: async () => {
-      console.warn('[clipboard] not supported files');
-      return null;
-    },
+    files: async () => ({
+      type: 'files',
+      content: await clipboard.readFiles(),
+      source: 'local'
+    }) as ClipboardData,
     image: async () => ({
       type: 'image',
       content: await clipboard.readImageBase64(),
@@ -191,8 +192,9 @@ export async function readClipboardData(): Promise<ClipboardData | null> {
  * @param content 主要内容
  * @param plaintext 纯文本内容（用于html类型的降级显示）
  */
-export async function writeToClipboard(type: ClipboardDataType, content: string, plaintext?: string) {
+export async function writeToClipboard(type: ClipboardDataType | 'files', content: string, plaintext?: string) {
   const writers = {
+    files: () => { console.warn('[clipboard] not supported files', content); },
     text: () => clipboard.writeText(content),
     image: () => clipboard.writeImageBase64(content),
     html: () => {
