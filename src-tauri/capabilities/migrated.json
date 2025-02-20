@@ -10,6 +10,10 @@
     "fs:allow-write-file",
     "fs:allow-read-dir",
     "fs:allow-mkdir",
+    "fs:read-all",
+    "fs:write-all",
+    "fs:allow-exists",
+    "fs:allow-fstat",
     {
       "identifier": "fs:scope",
       "allow": [ "**" ]
