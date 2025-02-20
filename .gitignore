@@ -28,4 +28,6 @@ yarn-debug.log*
 yarn-error.log*
 stats.html
 
+.editorconfig
+.vscode
 .history

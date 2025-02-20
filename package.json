@@ -3,6 +3,22 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "tauri dev",
+    "nvmrc": "node -v > .nvmrc",
+    "postinstall": "pnpm nvmrc",
+    "predev": "pnpm nvmrc",
+    "tauri": "tauri",
+    "start": "vite",
+    "rls": "dotenv-load tauri build",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "vite preview",
+    "preinstall": "pnpm add -g add sloc @tauri-apps/cli",
+    "sloc": "sloc src src-tauri/src",
+    "update": "concurrently \"pnpm up\" \"cd src-tauri && cargo update && cargo clean\"",
+    "test": "mocha"
+  },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@fontsource/open-sans": "^5.1.0",
@@ -66,22 +82,6 @@
     "use-mutative": "^1.2.0",
     "uuid": "^11.1.0"
   },
-  "scripts": {
-    "dev": "tauri dev",
-    "nvmrc": "node -v > .nvmrc",
-    "postinstall": "pnpm nvmrc",
-    "predev": "pnpm nvmrc",
-    "tauri": "tauri",
-    "start": "vite",
-    "rls": "dotenv-load tauri build",
-    "build": "vite build",
-    "preview": "vite preview",
-    "serve": "vite preview",
-    "preinstall": "pnpm add -g add sloc @tauri-apps/cli",
-    "sloc": "sloc src src-tauri/src",
-    "update": "concurrently \"pnpm up\" \"cd src-tauri && cargo update && cargo clean\"",
-    "test": "mocha"
-  },
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -110,5 +110,5 @@
     "vite-plugin-top-level-await": "^1.4.4"
   },
   "resolutions": {},
-  "packageManager": "pnpm@8.13.1+sha1.90f9b2bb3ed58632bcb7b13c3902d6873ee9501c"
+  "packageManager": "pnpm@10.4.1"
 }
