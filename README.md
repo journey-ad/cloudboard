@@ -9,23 +9,26 @@
   </a>
 </p>
 
-## 1. 下载 Cloudboard
-### https://github.com/journey-ad/cloudboard/releases/latest
+## 1. 下载Cloudboard，在Windows端运行
+https://github.com/journey-ad/cloudboard/releases/latest
 
-## 2. 安装 Scriptable
-### https://apps.apple.com/cn/app/scriptable/id1405459188
-### 官网 https://scriptable.app/
+## 2. 安装Scriptable，这是一个自动化工具，可以运行JS脚本
+https://apps.apple.com/cn/app/scriptable/id1405459188
 
-### 2.1 导入加解密脚本（端到端加解密）
-### [CloudboardEncryptHelper.js](./Scriptable/CloudboardEncryptHelper.js)
+官网 https://scriptable.app/
+
+### 2.1 导入端到端加解密脚本到Scriptable
+[CloudboardEncryptHelper.js](CloudboardEncryptHelper.js)
 
 ## 3. 安装快捷指令
 
 ### 获取剪贴板
-### https://www.icloud.com/shortcuts/b0ccf3de427c4540bf5a6ea9a631219a
+https://www.icloud.com/shortcuts/b0ccf3de427c4540bf5a6ea9a631219a
 
 ### 发送剪贴板
-### https://www.icloud.com/shortcuts/8c2e8b9f06484cc98134b807e73a7767
+https://www.icloud.com/shortcuts/8c2e8b9f06484cc98134b807e73a7767
+
+### 快捷指令配置api_key、password参数，并检查加解密功能是否已关联到Scriptable
 
 
 # APP NAME
