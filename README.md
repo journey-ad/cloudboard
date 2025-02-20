@@ -1,6 +1,8 @@
 # Cloudboard
 
-开源的 Windows & iOS 剪贴板同步工具，支持端到端加密
+开源的 Windows & iOS 剪贴板同步工具，支持端到端加密[^1]
+
+[^1]: 在客户端本地使用 `AES-256-CBC` 算法加密后进行传输，服务端无法获取到原始数据内容
 
 <p align="center">
   <img alt="demo" src="./docs/readme-1.png">
@@ -17,7 +19,7 @@
    - 填写接口地址，并生成 API Key，对应快捷指令的 `api_key` 参数
    - 填写端到端加密密码，对应快捷指令的 `password` 参数
 
-2. 在 iOS 设备上安装 [Scriptable](https://apps.apple.com/cn/app/scriptable/id1405459188)[^1]
+2. 在 iOS 设备上安装 [Scriptable](https://apps.apple.com/cn/app/scriptable/id1405459188)[^2]
    - 下载端到端加解密脚本 [CloudboardEncryptHelper.js](https://raw.githubusercontent.com/journey-ad/cloudboard/master/docs/CloudboardEncryptHelper.js)，并导入到 Scriptable
 
 3. 安装快捷指令
@@ -28,7 +30,7 @@
 
 5. 现在 Windows 端的剪贴板将自动同步至云端，iOS 端使用快捷指令进行同步
 
-[^1]: 这是一个自动化工具，可以在快捷指令中运行 JS 脚本，官网 https://scriptable.app
+[^2]: 这是一个自动化工具，可以在快捷指令中运行 JS 脚本，官网 https://scriptable.app
 
 ## 开发说明
 
