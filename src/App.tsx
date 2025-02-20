@@ -5,7 +5,7 @@ import * as tauriEvent from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import * as tauriLogger from '@tauri-apps/plugin-log';
 import { relaunch } from '@tauri-apps/plugin-process';
-import * as tauriUpdater from '@tauri-apps/plugin-updater';
+// import * as tauriUpdater from '@tauri-apps/plugin-updater';
 import { JSX, lazy, LazyExoticComponent, Suspense, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';

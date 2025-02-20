@@ -1,10 +1,10 @@
 [package]
 name = "cloudboard"
 version = "0.1.0"
-description = "CloudBoard Client"
+description = "CloudBoard"
 authors = ["Jad"]
 license = "MIT"
-repository = "https://github.com/ovo-dev/cloudboard-client"
+repository = "https://github.com/journey-ad/cloudboard"
 edition = "2021"
 rust-version = "1.83.0"
 
@@ -40,7 +40,6 @@ dbus = "0.9"
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
-tauri-plugin-updater = "2"
 
 [features]
 # by default Tauri runs in production mode

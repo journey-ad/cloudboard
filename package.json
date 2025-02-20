@@ -47,7 +47,6 @@
     "@tauri-apps/plugin-process": "~2.2.0",
     "@tauri-apps/plugin-shell": "~2.2.0",
     "@tauri-apps/plugin-store": "~2.2.0",
-    "@tauri-apps/plugin-updater": "~2.3.0",
     "@tiptap/core": "^2.10.3",
     "@tiptap/extension-link": "^2.10.3",
     "@tiptap/pm": "^2.10.3",
