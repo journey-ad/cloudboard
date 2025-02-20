@@ -1,3 +1,33 @@
+# Cloudboard
+
+<p align="center">
+  <img alt="demo" src="./docs/readme-1.png">
+</p>
+<p align="center">
+  <a href="https://count.getloli.com" target="_blank">
+    <img alt="Cloudboard" src="https://count.getloli.com/@Cloudboard.github?name=Cloudboard.github&theme=3d-num&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto">
+  </a>
+</p>
+
+## 1. 下载 Cloudboard
+### https://github.com/journey-ad/cloudboard/releases/latest
+
+## 2. 安装 Scriptable
+### https://apps.apple.com/cn/app/scriptable/id1405459188
+### 官网 https://scriptable.app/
+
+### 2.1 导入加解密脚本（端到端加解密）
+### [CloudboardEncryptHelper.js](./Scriptable/CloudboardEncryptHelper.js)
+
+## 3. 安装快捷指令
+
+### 获取剪贴板
+### https://www.icloud.com/shortcuts/b0ccf3de427c4540bf5a6ea9a631219a
+
+### 发送剪贴板
+### https://www.icloud.com/shortcuts/8c2e8b9f06484cc98134b807e73a7767
+
+
 # APP NAME
 
 App description goes here.
