@@ -46,6 +46,9 @@
   "version": "../package.json",
   "identifier": "re.ovo.app.cloudboard",
   "plugins": {
+    "fs": {
+      "requireLiteralLeadingDot": false
+    },
     "updater": {
       "endpoints": [
         "https://youtu.be/ZXjlZBisYPQ"
