@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  APP_NAME: "Sample Desktop App"
+  APP_NAME: "CloudBoard"
 
 jobs:
   changelog:
@@ -31,15 +31,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest' # for Arm based macs (M1 and above).
-            args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest' # for Intel based macs.
-            args: '--target x86_64-apple-darwin'
-          - platform: 'ubuntu-latest'
-            args: ''
-          - platform: 'windows-latest'
-            args: ''
-    runs-on: ${{ matrix.platform }}
+          - name: 'macOS-Apple'
+            target: 'aarch64-apple-darwin'
+            runner: 'macos-latest'
+
+          - name: 'macOS-Intel'
+            target: 'x86_64-apple-darwin'
+            runner: 'macos-latest'
+
+          - name: 'Linux-x86_64'
+            runner: 'ubuntu-latest'
+            target: 'x86_64-unknown-linux-gnu'
+
+          - name: 'Windows-x86_64'
+            runner: 'windows-latest'
+            target: 'x86_64-pc-windows-msvc'
+
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
     needs: [changelog]
     steps:
       - name: Checkout repository
@@ -63,7 +72,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable # Set this to dtolnay/rust-toolchain@nightly
         with:
           # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.runner == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -71,7 +80,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install Ubuntu dependencies
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.runner == 'ubuntu-latest'
         run: |
           sudo apt update
           xargs sudo apt install -y < environment/apt_packages.txt
@@ -85,8 +94,8 @@ jobs:
         run: |
           pnpm rls
 
-      - name: CI upload Windows
-        if: ${{ github.ref_type == 'branch' && matrix.platform == 'windows-latest' }}
+      - name: CI upload Windows # normal branch commit only
+        if: ${{ github.ref_type == 'branch' && matrix.runner == 'windows-latest' }}
         uses: actions/upload-artifact@v4
         with:
           name: 'Windows Installers'
@@ -95,16 +104,16 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
 
-      - name: CI upload macOS
-        if: ${{ github.ref_type == 'branch' && matrix.platform == 'macos-latest' }}
+      - name: CI upload macOS # normal branch commit only
+        if: ${{ github.ref_type == 'branch' && matrix.runner == 'macos-latest' }}
         uses: actions/upload-artifact@v4
         with:
-          name: "macOS Installer (${{ matrix.args == '--target aarch64-apple-darwin' && 'Apple Silicon' || 'Intel' }})"
+          name: "macOS Installer (${{ matrix.target == 'aarch64-apple-darwin' && 'Apple Silicon' || 'Intel' }})"
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
 
-      - name: CI upload Linux
-        if: ${{ github.ref_type == 'branch' && matrix.platform == 'ubuntu-latest' }}
+      - name: CI upload Linux # normal branch commit only
+        if: ${{ github.ref_type == 'branch' && matrix.runner == 'ubuntu-latest' }}
         uses: actions/upload-artifact@v4
         with:
           name: 'Linux Distributions'
@@ -113,7 +122,7 @@ jobs:
             src-tauri/target/release/bundle/AppImage/*.AppImage
 
       # TODO: https://tauri.app/v1/guides/building/linux#cross-compiling-tauri-applications-for-arm-based-devices
-      - name: Build Tauri app
+      - name: Build Tauri app # tag release only
         uses: tauri-apps/tauri-action@v0
         if: ${{ github.ref_type == 'tag' }}
         # if u get Error: Resource not accessible by integration
@@ -130,4 +139,20 @@ jobs:
             See the assets to download this version and install.
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: --target ${{ matrix.target }}
+
+      - name: Upload Portable Binaries (Windows)
+        if: ${{ github.ref_type == 'tag' && matrix.runner == 'windows-latest' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $sourceExe = Get-ChildItem -Path "./src-tauri/target/release/" -File -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $sourceExe) {
+            Write-Host "No executable found in src-tauri/target/release/, Rebuilding..."
+            pnpm rls
+            $sourceExe = Get-ChildItem -Path "./src-tauri/target/release/" -File -Filter "*.exe" | Select-Object -First 1
+          }
+          $portableName = "${{ env.APP_NAME }}_${{ github.ref_name }}_x64-portable-release.exe"
+          Copy-Item $sourceExe.FullName $portableName
+          gh release upload ${{ github.ref_name }} $portableName --clobber
+          Write-Host "Uploaded portable binary to release tag=${{ github.ref_name }} portableName=$portableName"
