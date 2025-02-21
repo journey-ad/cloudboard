@@ -2,7 +2,7 @@
 import { Anchor, Button, Center, Checkbox, Grid, Group, Loader, PasswordInput, Popover, Stack, Switch, Text, TextInput, Title, Tooltip } from '@mantine/core';
 import { TbFingerprint } from 'react-icons/tb';
 import { Trans, useTranslation } from 'react-i18next';
-import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification, formatSeconds } from '../common/utils';
+import { notify, join, decryptContent, encryptContent, writeToClipboard, readClipboardData, formatBytes, notification, formatSeconds, calculateContentSize } from '../common/utils';
 import { createStorage } from '../tauri/storage';
 import { APP_NAME, RUNNING_IN_TAURI, useMinWidth, useTauriContext } from '../tauri/TauriProvider';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
@@ -319,7 +319,7 @@ export default function MainView() {
               isProgramWriteRef.current = false;
               return;
             }
-            const clipboardData = await readClipboardData();
+            const clipboardData = await readClipboardData({ max_size: apiConfigRef.current?.clipboard_size });
             if (!clipboardData) {
               console.warn('[clipboard] no clipboard data');
               return;
@@ -362,6 +362,13 @@ export default function MainView() {
 
     if (!apiConfigRef.current?.clipboard_type.includes(type)) {
       console.warn('[clipboard] the server does not support this type:', type);
+      return;
+    }
+
+    const max_size = apiConfigRef.current?.clipboard_size;
+    const content_size = await calculateContentSize(content);
+    if (max_size && content_size > max_size) {
+      console.warn(`[clipboard] the content is too large: max_size=${max_size}, content_size=${content_size}`);
       return;
     }
 

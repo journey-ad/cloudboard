@@ -7,7 +7,7 @@ import clipboard from "tauri-plugin-clipboard-api";
 import { notifications } from '@mantine/notifications';
 import { NOTIFICATION } from '../constants/notification';
 import i18n from '../translations/i18n';
-import { exists, readFile, rename, writeFile } from '@tauri-apps/plugin-fs';
+import { exists, stat, readFile, rename, writeFile } from '@tauri-apps/plugin-fs';
 import * as tauriPath from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 export { localforage };
@@ -194,9 +194,28 @@ export function getContentHash(content: string, algorithm = 'SHA256') {
 }
 
 /**
+ * @description 计算文件大小
+ * @param path 文件路径
+ * @returns 文件大小
+ */
+export async function calculateFileSize(path: string) {
+  const fileInfo = await stat(path);
+  return fileInfo.size;
+}
+
+/**
+ * @description 计算文件内容大小
+ * @param content 文件内容
+ * @returns 文件内容大小
+ */
+export async function calculateContentSize(content: string) {
+  return new TextEncoder().encode(content).length;
+}
+
+/**
  * @description 读取剪贴板内容
  */
-export async function readClipboardData(): Promise<ClipboardData | null> {
+export async function readClipboardData({ max_size = -1 }: { max_size?: number }): Promise<ClipboardData | null> {
   // 检查剪贴板内容类型
   const has = {
     hasText: await clipboard.hasText(),
@@ -213,6 +232,12 @@ export async function readClipboardData(): Promise<ClipboardData | null> {
       const filePath = (await clipboard.readFiles())[0];
       if (!filePath || !REGEX_IMAGE.test(filePath)) {
         console.warn('[clipboard] not support non-image files');
+        return null;
+      }
+
+      const file_size = await calculateFileSize(filePath);
+      if (max_size > 0 && file_size > max_size) {
+        console.warn(`[clipboard] image file size is too large, max_size=${max_size}, file_size=${file_size}`);
         return null;
       }
 
