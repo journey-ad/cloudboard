@@ -1,11 +1,14 @@
 # Cloudboard
 
-开源的 Windows & iOS 剪贴板同步工具，支持端到端加密[^1]
+Open source Windows & iOS clipboard synchronization tool, supports end-to-end encryption [^1]
 
-[^1]: 在客户端本地使用 `AES-256-CBC` 算法加密后进行传输，服务端无法获取到原始数据内容
+[^1]: The data is encrypted using the `AES-256-CBC` algorithm on the client side, and the server cannot obtain the original data content
 
 <p align="center">
-  <img alt="demo" src="./docs/readme-1.png">
+  <img alt="demo" src="./docs/preview_en.png" width="500">
+</p>
+<p align="center">
+  English | <a href="./README-zh_CN.md">中文文档</a>
 </p>
 <p align="center">
   <a href="https://count.getloli.com" target="_blank">
@@ -13,51 +16,51 @@
   </a>
 </p>
 
-## 食用方式
+## Usage
 
-1. [前往发布页](https://github.com/journey-ad/cloudboard/releases/latest)，下载并运行 Cloudboard
-   - 填写接口地址，并生成 API Key，对应快捷指令的 `api_key` 参数
-   - 填写端到端加密密码，对应快捷指令的 `password` 参数
+1. [Go to the release page](https://github.com/journey-ad/cloudboard/releases/latest), download and run Cloudboard
+   - Fill in the **API Endpoint**, and generate an **API Key**, corresponding to the `api_key` parameter of the shortcut
+   - Fill in the **End-to-End Encryption**, corresponding to the `password` parameter of the shortcut
 
-2. 在 iOS 设备上安装 [Scriptable](https://apps.apple.com/cn/app/scriptable/id1405459188)[^2]
-   - 下载端到端加解密脚本 [CloudboardEncryptHelper.js](https://raw.githubusercontent.com/journey-ad/cloudboard/master/docs/CloudboardEncryptHelper.js)，并导入到 Scriptable
+2. Install [Scriptable](https://apps.apple.com/cn/app/scriptable/id1405459188)[^2] on the iOS device
+   - Download the [CloudboardEncryptHelper.js](https://raw.githubusercontent.com/journey-ad/cloudboard/master/docs/CloudboardEncryptHelper.js) script, and import it into Scriptable
 
-3. 安装快捷指令
-   - 获取剪贴板 https://www.icloud.com/shortcuts/b0ccf3de427c4540bf5a6ea9a631219a
-   - 发送剪贴板 https://www.icloud.com/shortcuts/8c2e8b9f06484cc98134b807e73a7767
+3. Install the shortcut
+   - Get clipboard https://www.icloud.com/shortcuts/b0ccf3de427c4540bf5a6ea9a631219a
+   - Send clipboard https://www.icloud.com/shortcuts/8c2e8b9f06484cc98134b807e73a7767
 
-4. 快捷指令配置 `api_key`、`password` 参数，确保和 Windows 端一致，并检查加解密功能是否已关联到 Scriptable
+4. Configure the `api_key` and `password` parameters of the shortcut, ensuring consistency with the Windows, and checking if the encryption function has been associated with Scriptable
 
-5. 现在 Windows 端的剪贴板将自动同步至云端，iOS 端使用快捷指令进行同步
+5. Now the clipboard on the Windows will be automatically synchronized to cloud, and iOS uses the shortcut to synchronize
 
-[^2]: 这是一个自动化工具，可以在快捷指令中运行 JS 脚本，官网 https://scriptable.app
+[^2]: This is an automation tool that can run JS scripts in shortcuts, official website is https://scriptable.app
 
-## 开发说明
+## Development Notes
 
-这个项目基于 [Tauri](https://tauri.app/) 开发，请参考[前置要求](https://v2.tauri.app/zh-cn/start/prerequisites/)完成 Tauri 开发环境配置
+This project is developed based on [Tauri](https://tauri.app/), please refer to [Prerequisites](https://v2.tauri.app/zh-cn/start/prerequisites/) to complete the Tauri development environment configuration
 
-使用 pnpm + React + Mantine UI
+Use pnpm + React + Mantine UI
 
-### 常用命令
+### Common Commands
 
 #### `pnpm install`
 
-安装开发依赖
+Install development dependencies
 
 #### `pnpm dev`
-> 这是 `pnpm tauri dev` 的别名
+> This is an alias for `pnpm tauri dev`
 
-启动开发环境，同时运行前端和 Tauri 应用，带有调试工具
+Start the development environment, running both the frontend and Tauri application, with debugging tools
 
 #### `pnpm rls`
-> 这是 `pnpm tauri build` 的别名
+> This is an alias for `pnpm tauri build`
 
-构建前端代码并将其打包成 Tauri 发布版本，用于生成最终的可执行文件
+Build the frontend code and package it into a Tauri release version, for generating the final executable file
 
 #### `pnpm update`
 
-更新 `package.json` 和 `src-tauri/Cargo.toml` 中的依赖包版本，同时会清理 Rust 的构建文件
+Update the dependency package versions in `package.json` and `src-tauri/Cargo.toml`, while cleaning the Rust build files
 
 ### Debug
 
-使用 `cd src-tauri && cargo clean` 清理 Rust 构建文件可以解决一些异常问题
+Use `cd src-tauri && cargo clean` to clean the Rust build files to solve some abnormal issues
